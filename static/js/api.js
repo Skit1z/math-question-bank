@@ -603,6 +603,7 @@
                         let ocrModel = "";
                         if (ocrProvider === 'siliconflow') ocrModel = settings.siliconflow_model || 'Qwen/Qwen3-VL-8B-Instruct';
                         else if (ocrProvider === 'bailian') ocrModel = settings.ali_bailian_model || 'qwen3.7-flash';
+                        else if (ocrProvider === 'paddleocr') ocrModel = settings.paddleocr_model || 'PP-OCRv6';
                         else if (ocrProvider === 'zhongzhan_gpt') ocrModel = settings.zhongzhan_gpt_ocr_model || 'gpt-4o';
                         else if (ocrProvider === 'zhongzhan_claude') ocrModel = settings.zhongzhan_claude_ocr_model || 'claude-3-5-sonnet';
                         renderModelSelector('ocr', ocrProvider, ocrModel);
@@ -683,6 +684,11 @@
                 "Qwen/Qwen3-VL-8B-Instruct",
                 "deepseek-ai/DeepSeek-V4-Pro",
                 "deepseek-ai/DeepSeek-V4-Flash"
+            ],
+            paddleocr: [
+                "PP-OCRv6",
+                "PP-OCRv5",
+                "PaddleOCR-VL-1.6"
             ],
             bailian: BAILIAN_MODEL_PRESETS_BY_TASK,
             zhongzhan_gpt: [],
@@ -824,7 +830,7 @@
                 const prov = val.substring(0, idx).toLowerCase();
                 const name = val.substring(idx + 1);
                 // 校验前缀合理性
-                if (['deepseek', 'siliconflow', 'bailian', 'zhongzhan', 'zhongzhan_gpt', 'zhongzhan_claude'].includes(prov)) {
+                if (['deepseek', 'siliconflow', 'bailian', 'paddleocr', 'zhongzhan', 'zhongzhan_gpt', 'zhongzhan_claude'].includes(prov)) {
                     let targetProv = prov;
                     if (targetProv === 'zhongzhan') targetProv = 'zhongzhan_gpt'; // 兼容老数据
                     return { provider: targetProv, model: name };
@@ -941,6 +947,8 @@
                 defVal = typeKey === 'ocr' ? "Qwen/Qwen3-VL-8B-Instruct" : "deepseek-ai/DeepSeek-V4-Flash";
             } else if (provider === 'bailian') {
                 defVal = BAILIAN_MODEL_DEFAULTS_BY_TASK[typeKey] || "qwen3.7-flash";
+            } else if (provider === 'paddleocr') {
+                defVal = "PP-OCRv6";
             } else if (provider === 'zhongzhan_gpt') {
                 defVal = ""; // 默认空白，供用户填写
             } else if (provider === 'zhongzhan_claude') {
@@ -977,6 +985,8 @@
                     document.getElementById('settingsDeepseekKey').value = settings.deepseek_key || '';
                     document.getElementById('settingsSiliconflowKey').value = settings.siliconflow_key || '';
                     document.getElementById('settingsAliBailianKey').value = settings.ali_bailian_key || '';
+                    document.getElementById('settingsPaddleOcrKey').value = settings.paddleocr_key || '';
+                    document.getElementById('settingsPaddleOcrBaseUrl').value = settings.paddleocr_base_url || 'https://paddleocr.aistudio-app.com';
                     
                     document.getElementById('settingsZhongzhanGptKey').value = settings.zhongzhan_gpt_key || '';
                     document.getElementById('settingsZhongzhanGptBaseUrl').value = settings.zhongzhan_gpt_base_url || '';
@@ -1006,6 +1016,7 @@
                     let ocrModel = "";
                     if (ocrProvider === 'siliconflow') ocrModel = settings.siliconflow_model || 'Qwen/Qwen3-VL-8B-Instruct';
                     else if (ocrProvider === 'bailian') ocrModel = settings.ali_bailian_model || 'qwen3.7-flash';
+                    else if (ocrProvider === 'paddleocr') ocrModel = settings.paddleocr_model || 'PP-OCRv6';
                     else if (ocrProvider === 'zhongzhan_gpt') ocrModel = settings.zhongzhan_gpt_ocr_model || 'gpt-4o';
                     else if (ocrProvider === 'zhongzhan_claude') ocrModel = settings.zhongzhan_claude_ocr_model || 'claude-3-5-sonnet';
                     
@@ -1114,6 +1125,8 @@
             const key = document.getElementById('settingsDeepseekKey').value;
             const siliconflowKey = document.getElementById('settingsSiliconflowKey').value;
             const aliBailianKey = document.getElementById('settingsAliBailianKey').value;
+            const paddleOcrKey = document.getElementById('settingsPaddleOcrKey').value;
+            const paddleOcrBaseUrl = document.getElementById('settingsPaddleOcrBaseUrl').value;
             
             const zhongzhanGptKey = document.getElementById('settingsZhongzhanGptKey').value;
             const zhongzhanGptBaseUrl = document.getElementById('settingsZhongzhanGptBaseUrl').value;
@@ -1162,11 +1175,13 @@
             
             let siliconflowModel = "";
             let aliBailianModel = "";
+            let paddleOcrSelectedModel = "";
             let zhongzhanGptOcrModel = "";
             let zhongzhanClaudeOcrModel = "";
             
             if (ocrProvider === 'siliconflow') siliconflowModel = ocrModel;
             else if (ocrProvider === 'bailian') aliBailianModel = ocrModel;
+            else if (ocrProvider === 'paddleocr') paddleOcrSelectedModel = ocrModel;
             else if (ocrProvider === 'zhongzhan_gpt') zhongzhanGptOcrModel = ocrModel;
             else if (ocrProvider === 'zhongzhan_claude') zhongzhanClaudeOcrModel = ocrModel;
             
@@ -1179,6 +1194,9 @@
             formData.append('deepseek_key', key);
             formData.append('siliconflow_key', siliconflowKey);
             formData.append('ali_bailian_key', aliBailianKey);
+            formData.append('paddleocr_key', paddleOcrKey);
+            formData.append('paddleocr_base_url', paddleOcrBaseUrl);
+            formData.append('paddleocr_model', paddleOcrSelectedModel);
             
             formData.append('zhongzhan_gpt_key', zhongzhanGptKey);
             formData.append('zhongzhan_gpt_base_url', zhongzhanGptBaseUrl);
@@ -1315,7 +1333,7 @@
             // 2. Edit Difficulty select
             const editDiff = document.getElementById('editDifficulty');
             if (editDiff) {
-                const currentVal = editDiff.value || 'easy_error';
+                const currentVal = editDiff.value || 'standard';
                 editDiff.innerHTML = '';
                 systemMetadata.difficulties.forEach(item => {
                     const opt = document.createElement('option');
@@ -1331,7 +1349,7 @@
             }
 
             // 3. Sidebar Filter Question Type select
-            const filterQType = document.getElementById('filterQType');
+            const filterQType = document.getElementById('filterType');
             if (filterQType) {
                 const currentVal = filterQType.value || '';
                 filterQType.innerHTML = '<option value="">全部题型</option>';
@@ -1415,16 +1433,31 @@
                 }
                 if (tabAbout) tabAbout.classList.remove('hidden');
                 if (btnSave) btnSave.classList.add('hidden');
-                
+
                 // Refresh update status in About tab
                 refreshAboutTabUpdateInfo();
+            } else if (tabName === 'sources') {
+                const btnSources = document.getElementById('btn-settings-sources');
+                const tabSources = document.getElementById('settings-tab-sources');
+                if (btnSources) {
+                    btnSources.classList.add('border-brand-500', 'text-brand-600');
+                    btnSources.classList.remove('border-transparent', 'text-slate-500');
+                }
+                if (tabSources) tabSources.classList.remove('hidden');
+                if (btnSave) btnSave.classList.add('hidden');
+                resetSourceAdminForm();
+                refreshSources();
             }
         };
 
-        // Reset Metadata to High school math template
-        window.resetMetadataToDefault = function(version = 'A') {
-            const versionName = version === 'B' ? '人教B版' : (version === 'S' ? '苏教版' : (version === 'H' ? '沪教版' : '人教A版'));
-            if (!confirm(`确认要将所有题型、难度和学段重置为默认的【${versionName}】配置模板吗？这不会修改您的数据库题目，但会替换下方编辑框的内容（需点击保存后生效）。`)) {
+        // Reset metadata to the single graduate-math profile.
+        window.resetMetadataToDefault = function(version = 'K') {
+            if (version !== 'K') {
+                showToast('当前仅支持考研数学 K 大纲。', 'error');
+                return;
+            }
+            const versionName = '考研数学';
+            if (!confirm(`确认要将所有题型、难度和考试方向重置为默认的【${versionName}】配置模板吗？这不会修改题库题目，但会替换下方编辑框的内容（需点击保存后生效）。`)) {
                 return;
             }
 
@@ -1437,13 +1470,13 @@
                 })
                 .then(data => {
                     if (!data || !data.metadata || !data.metadata.curriculum) {
-                        throw new Error('教材大纲预设响应格式错误');
+                        throw new Error('考研数学大纲预设响应格式错误');
                     }
                     document.getElementById('settingsMetadataJson').value = JSON.stringify(data.metadata, null, 2);
                     showToast(`已加载默认【${data.name || versionName}】配置模板，请点击最下方的 [保存配置] 按钮进行保存并应用。`);
                 })
                 .catch(error => {
-                    showToast('加载教材大纲预设失败: ' + error.message, 'error');
+                    showToast('加载考研数学大纲预设失败: ' + error.message, 'error');
                 });
         };
 
@@ -1778,20 +1811,20 @@
                     return MathBankSafe.safeClassList(found.color, 'text-slate-600 bg-slate-100 border border-slate-200/60');
                 }
             }
-            if (val === 'easy_error') return 'text-green-600 bg-green-50 border border-green-200/60';
-            if (val === 'normal') return 'text-blue-600 bg-blue-50 border border-blue-200/60';
-            if (val === 'challenge') return 'text-red-600 bg-red-50 border border-red-200/60';
-            if (val === 'qiangji') return 'text-purple-600 bg-purple-50 border border-purple-200/60';
+            if (val === 'basic') return 'text-green-600 bg-green-50 border border-green-200/60';
+            if (val === 'standard') return 'text-blue-600 bg-blue-50 border border-blue-200/60';
+            if (val === 'comprehensive') return 'text-red-600 bg-red-50 border border-red-200/60';
+            if (val === 'advanced') return 'text-purple-600 bg-purple-50 border border-purple-200/60';
             return 'text-slate-600 bg-slate-100 border border-slate-200/60';
         }
         window.getDifficultyColor = getDifficultyColor;
 
         function getDifficultyBadge(diff) {
             if (!systemMetadata || !systemMetadata.difficulties || systemMetadata.difficulties.length === 0) {
-                if (diff === 'easy_error') return '<span class="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">易错</span>';
-                if (diff === 'normal') return '<span class="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">常规</span>';
-                if (diff === 'challenge') return '<span class="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">挑战</span>';
-                if (diff === 'qiangji') return '<span class="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">强基</span>';
+                if (diff === 'basic') return '<span class="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">基础</span>';
+                if (diff === 'standard') return '<span class="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">常规</span>';
+                if (diff === 'comprehensive') return '<span class="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">综合</span>';
+                if (diff === 'advanced') return '<span class="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">压轴</span>';
                 return '<span class="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">未定</span>';
             }
             const found = systemMetadata.difficulties.find(d => d.value === diff);
@@ -1807,7 +1840,6 @@
         function getTypeText(type) {
             if (!systemMetadata || !systemMetadata.question_types || systemMetadata.question_types.length === 0) {
                 if (type === 'single_choice') return '单选题';
-                if (type === 'multi_choice') return '多选题';
                 if (type === 'fill_in_blank') return '填空题';
                 if (type === 'detailed_answer') return '解答题';
                 return '数学题';
@@ -1818,10 +1850,10 @@
 
         function getDifficultyText(val) {
             if (!systemMetadata || !systemMetadata.difficulties || systemMetadata.difficulties.length === 0) {
-                if (val === 'easy_error') return '易错题';
-                if (val === 'normal') return '常规题';
-                if (val === 'challenge') return '挑战题';
-                if (val === 'qiangji') return '强基题';
+                if (val === 'basic') return '基础巩固';
+                if (val === 'standard') return '真题常规';
+                if (val === 'comprehensive') return '综合提升';
+                if (val === 'advanced') return '压轴拔高';
                 return '未定';
             }
             const found = systemMetadata.difficulties.find(d => d.value === val);
@@ -2138,9 +2170,275 @@
             }
         }
 
+        /**
+         * =========================================================================
+         * 结构化来源库 (Source Library)
+         * =========================================================================
+         * 来源独立于题目存在（每册教辅分篇/每张真题卷一条记录），题目通过
+         * source_id + source_number + source_scope 结构化引用，显示标签形如
+         * 「880基础篇·第二章·选择(10)」「1991数一(8)」。
+         */
+        const SourceCache = { items: [], loaded: false };
+        window.SourceCache = SourceCache;
+
+        function sourceTripleKey(triple) {
+            if (!triple) return '||';
+            return [
+                triple.source_id || '',
+                triple.source_number || '',
+                triple.source_scope || ''
+            ].join('|');
+        }
+        window.sourceTripleKey = sourceTripleKey;
+
+        function findSourceNameById(id) {
+            if (!id) return '';
+            const hit = SourceCache.items.find(s => String(s.id) === String(id));
+            return hit ? hit.name : '';
+        }
+        window.findSourceNameById = findSourceNameById;
+
+        function renderSourcePickers() {
+            const editorSelect = document.getElementById('editSourceSelect');
+            if (editorSelect) {
+                const current = SourceForm.pendingId || editorSelect.value;
+                const options = ['<option value="">无来源</option>'];
+                const groups = new Map();
+                SourceCache.items.forEach(s => {
+                    const key = s.series || '';
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(s);
+                });
+                Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).forEach(series => {
+                    const items = groups.get(series);
+                    const inner = items.map(s =>
+                        `<option value="${s.id}">${window.MathBankSafe.escapeText(s.name)}</option>`
+                    ).join('');
+                    if (series) {
+                        options.push(`<optgroup label="${window.MathBankSafe.escapeText(series)}">${inner}</optgroup>`);
+                    } else {
+                        options.push(inner);
+                    }
+                });
+                editorSelect.innerHTML = options.join('');
+                if (current && SourceCache.items.some(s => String(s.id) === current)) {
+                    editorSelect.value = current;
+                    SourceForm.pendingId = '';
+                } else if (current) {
+                    // 来源缓存尚未包含该 id：保留待定值，等下一次刷新回填。
+                    editorSelect.value = '';
+                }
+            }
+
+            const filterSelect = document.getElementById('filterSourceSelect');
+            if (filterSelect) {
+                const current = filterSelect.value;
+                const options = ['<option value="">所有来源</option>'];
+                SourceCache.items.forEach(s => {
+                    const suffix = s.usage_count != null ? ` (${s.usage_count})` : '';
+                    options.push(`<option value="${s.id}">${window.MathBankSafe.escapeText(s.name)}${suffix}</option>`);
+                });
+                filterSelect.innerHTML = options.join('');
+                if (current && SourceCache.items.some(s => String(s.id) === current)) {
+                    filterSelect.value = current;
+                }
+            }
+        }
+
+        function refreshSources() {
+            return fetch('/api/sources')
+                .then(r => r.json())
+                .then(data => {
+                    SourceCache.items = (data && data.sources) || [];
+                    SourceCache.loaded = true;
+                    renderSourcePickers();
+                    if (typeof window.renderSourcesAdmin === 'function') {
+                        window.renderSourcesAdmin();
+                    }
+                    return SourceCache.items;
+                })
+                .catch(err => {
+                    console.error('获取来源库失败:', err);
+                    return [];
+                });
+        }
+        window.refreshSources = refreshSources;
+
+        // 来源三件套（下拉/题号/作用域）的统一读写层，供编辑器与保存流复用。
+        const SourceForm = {
+            pendingId: '',
+            read() {
+                const select = document.getElementById('editSourceSelect');
+                const number = document.getElementById('editSourceNumber');
+                const scope = document.getElementById('editSourceScope');
+                return {
+                    source_id: select ? select.value : '',
+                    source_number: number ? number.value.trim() : '',
+                    source_scope: scope ? scope.value.trim() : ''
+                };
+            },
+            write(data) {
+                const select = document.getElementById('editSourceSelect');
+                const number = document.getElementById('editSourceNumber');
+                const scope = document.getElementById('editSourceScope');
+                let id = data && data.source_id ? String(data.source_id) : '';
+                if (!id && data && typeof data.source === 'string' && data.source.trim()) {
+                    // 旧版草稿只有来源文本：按名称精确匹配来源库。
+                    const hit = SourceCache.items.find(s => s.name === data.source.trim());
+                    if (hit) id = String(hit.id);
+                }
+                this.pendingId = '';
+                if (select) {
+                    if (id && SourceCache.items.some(s => String(s.id) === id)) {
+                        select.value = id;
+                    } else {
+                        // 缓存未就绪时先记住 id，等 renderSourcePickers 回填。
+                        this.pendingId = id || '';
+                        select.value = '';
+                    }
+                }
+                if (number) number.value = (data && data.source_number != null) ? data.source_number : '';
+                if (scope) scope.value = (data && data.source_scope) || '';
+            },
+            label() {
+                const state = this.read();
+                let label = findSourceNameById(state.source_id || this.pendingId);
+                if (state.source_scope) {
+                    label = label ? label + '·' + state.source_scope : state.source_scope;
+                }
+                if (state.source_number) {
+                    label = label ? label + '(' + state.source_number + ')' : state.source_number;
+                }
+                return label;
+            }
+        };
+        window.SourceForm = SourceForm;
+
+        /**
+         * 设置弹窗「来源库」管理台：列表 + 新增/编辑/删除。
+         */
+        function resetSourceAdminForm() {
+            const form = document.getElementById('sourceAdminForm');
+            if (!form) return;
+            form.reset();
+            document.getElementById('sourceAdminId').value = '';
+            const title = document.getElementById('sourceAdminTitle');
+            if (title) title.textContent = '新增来源';
+            const cancelBtn = document.getElementById('sourceAdminCancel');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+        }
+        window.resetSourceAdminForm = resetSourceAdminForm;
+
+        function startEditSourceAdmin(id) {
+            const source = SourceCache.items.find(s => String(s.id) === String(id));
+            if (!source) return;
+            document.getElementById('sourceAdminId').value = source.id;
+            document.getElementById('sourceAdminName').value = source.name || '';
+            document.getElementById('sourceAdminSeries').value = source.series || '';
+            document.getElementById('sourceAdminNote').value = source.note || '';
+            const title = document.getElementById('sourceAdminTitle');
+            if (title) title.textContent = '编辑来源';
+            const cancelBtn = document.getElementById('sourceAdminCancel');
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+            const nameInput = document.getElementById('sourceAdminName');
+            if (nameInput) nameInput.focus();
+        }
+        window.startEditSourceAdmin = startEditSourceAdmin;
+
+        function renderSourcesAdmin() {
+            const listEl = document.getElementById('sourceAdminList');
+            if (!listEl) return;
+            if (!SourceCache.items.length) {
+                listEl.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center">来源库为空，请先新增来源。</p>';
+                return;
+            }
+            listEl.innerHTML = SourceCache.items.map(s => `
+                <div class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/40">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.MathBankSafe.escapeText(s.name)}</p>
+                        <p class="text-[10px] text-slate-400 truncate">
+                            ${s.series ? window.MathBankSafe.escapeText(s.series) + ' · ' : ''}被 ${s.usage_count || 0} 道题引用${s.note ? ' · ' + window.MathBankSafe.escapeText(s.note) : ''}
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <button type="button" onclick="startEditSourceAdmin('${s.id}')" class="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-brand-600 hover:border-brand-500 transition-all" title="编辑来源" aria-label="编辑来源">
+                            <i class="fa-solid fa-pen text-[11px]"></i>
+                        </button>
+                        <button type="button" onclick="deleteSourceAdmin('${s.id}')" class="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-red-500 hover:border-red-400 transition-all" title="删除来源" aria-label="删除来源">
+                            <i class="fa-solid fa-trash text-[11px]"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        window.renderSourcesAdmin = renderSourcesAdmin;
+
+        function submitSourceAdminForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('sourceAdminId').value;
+            const payload = {
+                name: document.getElementById('sourceAdminName').value,
+                series: document.getElementById('sourceAdminSeries').value,
+                note: document.getElementById('sourceAdminNote').value
+            };
+            if (!payload.name.trim()) {
+                showToast('来源名称不能为空', 'warning');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('name', payload.name);
+            formData.append('series', payload.series);
+            formData.append('note', payload.note);
+            const url = id ? `/api/sources/${id}` : '/api/sources';
+            fetch(url, {
+                method: id ? 'PUT' : 'POST',
+                headers: { 'X-Local-Token': window.__localToken || '' },
+                body: formData
+            })
+                .then(async r => {
+                    if (!r.ok) {
+                        const err = await r.json().catch(() => ({}));
+                        throw new Error(err.detail || `HTTP ${r.status}`);
+                    }
+                    return r.json();
+                })
+                .then(() => {
+                    showToast(id ? '来源已更新' : '来源已创建');
+                    resetSourceAdminForm();
+                    return refreshSources();
+                })
+                .catch(err => showToast('保存来源失败: ' + err.message, 'error'));
+            return false;
+        }
+        window.submitSourceAdminForm = submitSourceAdminForm;
+
+        function deleteSourceAdmin(id) {
+            const source = SourceCache.items.find(s => String(s.id) === String(id));
+            if (!source) return;
+            if (!window.confirm(`确定删除来源「${source.name}」吗？`)) return;
+            fetch(`/api/sources/${id}`, {
+                method: 'DELETE',
+                headers: { 'X-Local-Token': window.__localToken || '' }
+            })
+                .then(async r => {
+                    if (!r.ok) {
+                        const err = await r.json().catch(() => ({}));
+                        throw new Error(err.detail || `HTTP ${r.status}`);
+                    }
+                    return r.json();
+                })
+                .then(() => {
+                    showToast('来源已删除');
+                    return refreshSources();
+                })
+                .catch(err => showToast('删除失败: ' + err.message, 'error'));
+        }
+        window.deleteSourceAdmin = deleteSourceAdmin;
+
         // Initialize theme and check update on DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
             initTheme();
+            refreshSources();
             if (window.silentCheckAppUpdateOnStart) {
                 window.silentCheckAppUpdateOnStart();
             }

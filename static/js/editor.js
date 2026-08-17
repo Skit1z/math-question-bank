@@ -158,10 +158,10 @@ let bankQuestionsRetryTimer = null;
                 review: document.getElementById('editReview').value,
                 question_type: document.getElementById('editQType').value,
                 difficulty: document.getElementById('editDifficulty').value,
-                source: document.getElementById('editSource').value,
-                category_compulsory: document.getElementById('editCompulsory').value,
-                category_chapter: document.getElementById('editChapter').value,
-                category_knowledge: document.getElementById('editKnowledge').value,
+                source: window.SourceForm ? SourceForm.read() : '',
+                exam_track: document.getElementById('editExamTrack').value,
+                subject: document.getElementById('editSubject').value,
+                topic: document.getElementById('editTopic').value,
                 image_paths: JSON.stringify(uploadedImages),
                 tags: document.getElementById('editTags') ? document.getElementById('editTags').value : ''
             };
@@ -174,9 +174,9 @@ let bankQuestionsRetryTimer = null;
                 question_type: snapshot.question_type,
                 difficulty: snapshot.difficulty,
                 source: snapshot.source,
-                category_compulsory: snapshot.category_compulsory,
-                category_chapter: snapshot.category_chapter,
-                category_knowledge: snapshot.category_knowledge,
+                exam_track: snapshot.exam_track,
+                subject: snapshot.subject,
+                topic: snapshot.topic,
                 image_paths: snapshot.image_paths,
                 tags: snapshot.tags
             };
@@ -190,10 +190,12 @@ let bankQuestionsRetryTimer = null;
             const currentReview = document.getElementById('editReview').value;
             const currentType = document.getElementById('editQType').value;
             const currentDifficulty = document.getElementById('editDifficulty').value;
-            const currentSource = document.getElementById('editSource').value;
-            const currentComp = document.getElementById('editCompulsory').value;
-            const currentChap = document.getElementById('editChapter').value;
-            const currentKnow = document.getElementById('editKnowledge').value;
+            const currentSourceKey = window.sourceTripleKey
+                ? window.sourceTripleKey(window.SourceForm ? SourceForm.read() : '')
+                : '';
+            const currentTrack = document.getElementById('editExamTrack').value;
+            const currentSubject = document.getElementById('editSubject').value;
+            const currentTopic = document.getElementById('editTopic').value;
             const currentImages = JSON.stringify(uploadedImages);
             const currentTags = document.getElementById('editTags') ? document.getElementById('editTags').value : '';
 
@@ -202,10 +204,10 @@ let bankQuestionsRetryTimer = null;
                    currentReview === snapshot.review &&
                    currentType === snapshot.question_type &&
                    currentDifficulty === snapshot.difficulty &&
-                   currentSource === snapshot.source &&
-                   currentComp === snapshot.category_compulsory &&
-                   currentChap === snapshot.category_chapter &&
-                   currentKnow === snapshot.category_knowledge &&
+                   currentSourceKey === ((window.sourceTripleKey && window.sourceTripleKey(snapshot.source)) || '') &&
+                   currentTrack === snapshot.exam_track &&
+                   currentSubject === snapshot.subject &&
+                   currentTopic === snapshot.topic &&
                    currentImages === snapshot.image_paths &&
                    currentTags === snapshot.tags;
         }
@@ -283,8 +285,8 @@ let bankQuestionsRetryTimer = null;
             });
         }
 
-        // Custom Premium Confirmation Modal for Missing School Phase (Compulsory)
-        function showMissingCompulsoryModal() {
+        // Custom confirmation modal for incomplete graduate-math classification.
+        function showMissingClassificationModal() {
             return new Promise((resolve) => {
                 const modalDiv = document.createElement('div');
                 modalDiv.className = "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center select-none opacity-0 transition-opacity duration-300";
@@ -303,12 +305,12 @@ let bankQuestionsRetryTimer = null;
                             </div>
                         </div>
                         <p class="text-xs text-slate-500 leading-relaxed">
-                            为了确保题目能够被精准定位和检索，每道题都需要分配<strong>学段（如：必修一）</strong>与<strong>章节</strong>。您可以选择：
+                            为了确保题目能够被精准定位和检索，每道题都需要分配<strong>考试方向（数学一/数学二/数学三）</strong>、<strong>科目</strong>与<strong>考点</strong>。您可以选择：
                         </p>
                         <div class="flex flex-col space-y-2 pt-1">
-                            <button id="manualCompulsoryBtn" type="button" class="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 active:scale-[0.99] text-slate-700 rounded-xl font-semibold transition-all text-xs flex items-center justify-center space-x-2 border border-slate-200/50">
+                            <button id="manualClassificationBtn" type="button" class="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 active:scale-[0.99] text-slate-700 rounded-xl font-semibold transition-all text-xs flex items-center justify-center space-x-2 border border-slate-200/50">
                                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
-                                <span>手动选择 / 输入教材定位</span>
+                                <span>手动选择考研数学分类</span>
                             </button>
                             <button id="autoSaveClassifyBtn" type="button" class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white rounded-xl font-bold transition-all text-xs flex items-center justify-center space-x-2 shadow-sm">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
@@ -316,7 +318,7 @@ let bankQuestionsRetryTimer = null;
                             </button>
                         </div>
                         <div class="flex justify-end pt-2 border-t border-slate-100">
-                            <button id="cancelCompulsoryBtn" type="button" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-all text-[11px] font-medium active:scale-[0.98]">
+                            <button id="cancelClassificationBtn" type="button" class="px-4 py-2 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-all text-[11px] font-medium active:scale-[0.98]">
                                 取消保存
                             </button>
                         </div>
@@ -343,9 +345,9 @@ let bankQuestionsRetryTimer = null;
                 };
                 window.MathBankModal.open(modalDiv, { onEscape: () => closeModal('cancel') });
 
-                document.getElementById('manualCompulsoryBtn').onclick = () => closeModal('manual');
+                document.getElementById('manualClassificationBtn').onclick = () => closeModal('manual');
                 document.getElementById('autoSaveClassifyBtn').onclick = () => closeModal('ai');
-                document.getElementById('cancelCompulsoryBtn').onclick = () => closeModal('cancel');
+                document.getElementById('cancelClassificationBtn').onclick = () => closeModal('cancel');
             });
         }
 
@@ -357,7 +359,7 @@ let bankQuestionsRetryTimer = null;
             }
             if (isEditorModified()) {
                 const choice = await showUnsavedChangesModal();
-                
+
                 if (choice === 'bank') {
                     // Try to save to SQLite database
                     const saveSuccess = await saveQuestion();
@@ -409,24 +411,28 @@ let bankQuestionsRetryTimer = null;
             }
             const content = document.getElementById('editContent').value;
             const qtype = document.getElementById('editQType').value;
-            const compulsory = document.getElementById('editCompulsory').value;
-            const chapter = document.getElementById('editChapter').value;
-            const knowledge = document.getElementById('editKnowledge').value;
+            const examTrack = document.getElementById('editExamTrack').value;
+            const subject = document.getElementById('editSubject').value;
+            const topic = document.getElementById('editTopic').value;
             const difficulty = document.getElementById('editDifficulty').value;
-            const source = document.getElementById('editSource').value;
+            const sourceTriple = window.SourceForm ? SourceForm.read() : {};
+            const source = window.SourceForm ? SourceForm.label() : '';
             const answerMarkdown = document.getElementById('editAnswerMarkdown').value;
             const review = document.getElementById('editReview').value;
             const tags = document.getElementById('editTags') ? document.getElementById('editTags').value.trim() : '';
-            
+
             const draft = {
                 id: EditorState.draftId || ('draft-' + Date.now()),
                 content: content,
                 question_type: qtype,
-                category_compulsory: compulsory,
-                category_chapter: chapter,
-                category_knowledge: knowledge,
+                exam_track: examTrack,
+                subject: subject,
+                topic: topic,
                 difficulty: difficulty,
                 source: source,
+                source_id: sourceTriple.source_id || '',
+                source_number: sourceTriple.source_number || '',
+                source_scope: sourceTriple.source_scope || '',
                 answer_markdown: answerMarkdown,
                 review: review,
                 tags: tags,
@@ -437,7 +443,7 @@ let bankQuestionsRetryTimer = null;
                 isDraft: true,
                 updated_at: new Date().toISOString()
             };
-            
+
             let drafts = getLocalStorageDrafts();
             const index = drafts.findIndex(d => d.id === draft.id);
             if (index > -1) {
@@ -445,16 +451,16 @@ let bankQuestionsRetryTimer = null;
             } else {
                 drafts.unshift(draft);
             }
-            
+
             setLocalStorageDrafts(drafts);
             EditorState.setDraftId(draft.id);
-            
+
             // Backup the new draft state as the "original state" so the editor is no longer modified
             backupEditorState(null, draft.id);
-            
+
             updateDraftCountBadge();
             showToast('已暂存至草稿箱！');
-            
+
             // Reload drafts if active
             if (activeSidebarTab === 'drafts') {
                 loadDrafts();
@@ -469,45 +475,47 @@ let bankQuestionsRetryTimer = null;
                 window.invalidatePendingQuestionDetailLoad();
             }
             EditorState.useDraft(draft);
-            
+
             // Populate form fields
             document.getElementById('editContent').value = draft.content || '';
             document.getElementById('editQType').value = draft.question_type || 'single_choice';
-            document.getElementById('editDifficulty').value = draft.difficulty || 'easy_error';
-            document.getElementById('editSource').value = draft.source || '';
+            document.getElementById('editDifficulty').value = draft.difficulty || 'standard';
+            if (window.SourceForm) {
+                SourceForm.write(draft);
+            }
             document.getElementById('editAnswerMarkdown').value = draft.answer_markdown || '';
             document.getElementById('editReview').value = draft.review || '';
             if (document.getElementById('editTags')) {
                 document.getElementById('editTags').value = draft.tags || '';
             }
-            
+
             // Load cascading categories
-            const compSelect = document.getElementById('editCompulsory');
-            const chapSelect = document.getElementById('editChapter');
-            const knowSelect = document.getElementById('editKnowledge');
-            
+            const trackSelect = document.getElementById('editExamTrack');
+            const subjectSelect = document.getElementById('editSubject');
+            const topicSelect = document.getElementById('editTopic');
+
             // Reset dropdowns
-            compSelect.value = '';
-            compSelect.onchange();
-            
-            if (draft.category_compulsory) {
-                compSelect.value = draft.category_compulsory;
-                compSelect.onchange();
-                if (draft.category_chapter) {
-                    chapSelect.value = draft.category_chapter;
-                    chapSelect.onchange();
-                    if (draft.category_knowledge) {
-                        knowSelect.value = draft.category_knowledge;
+            trackSelect.value = '';
+            trackSelect.onchange();
+
+            if (draft.exam_track) {
+                trackSelect.value = draft.exam_track;
+                trackSelect.onchange();
+                if (draft.subject) {
+                    subjectSelect.value = draft.subject;
+                    subjectSelect.onchange();
+                    if (draft.topic) {
+                        topicSelect.value = draft.topic;
                     }
                 }
             }
-            
+
             // Load images
             uploadedImages = Array.isArray(draft.image_paths)
                 ? draft.image_paths.map(path => window.MathBankSafe.safeImageUrl(path)).filter(Boolean)
                 : [];
             renderIllustrationBadges();
-            
+
             // Update preview and side panels
             if (typeof window.updateContentPreview === 'function') {
                 window.updateContentPreview();
@@ -525,12 +533,12 @@ let bankQuestionsRetryTimer = null;
                 document.getElementById('editReview').dispatchEvent(new Event('input'));
             }
             renderEditorPaperMeta();
-            
+
             document.getElementById('editorTitle').textContent = `编辑草稿 - 暂存中`;
-            
+
             // Backup draft state
             backupEditorState(null, draft.id);
-            
+
             // Active highlighting in sidebar drafts list
             if (activeSidebarTab === 'drafts') {
                 highlightActiveDraftCard(draft.id);
@@ -553,54 +561,58 @@ let bankQuestionsRetryTimer = null;
             const q = document.getElementById('searchInput').value.trim().toLowerCase();
             const qtype = document.getElementById('filterType').value;
             const difficulty = document.getElementById('filterDifficulty').value;
-            const compulsory = document.getElementById('filterCompulsory').value;
-            const chapter = document.getElementById('filterChapter').value;
-            const source = document.getElementById('filterSource') ? document.getElementById('filterSource').value.trim().toLowerCase() : '';
-            
+            const examTrack = document.getElementById('filterExamTrack').value;
+            const subject = document.getElementById('filterSubject').value;
+            const sourceFilterEl = document.getElementById('filterSourceSelect');
+            const sourceId = sourceFilterEl ? sourceFilterEl.value : '';
+            const sourceName = (sourceId && window.SourceCache)
+                ? (window.findSourceNameById(sourceId) || '')
+                : '';
+
             let drafts = getLocalStorageDrafts();
-            
+
             // Filter by type
             if (qtype) {
                 drafts = drafts.filter(item => item.question_type === qtype);
             }
-            
+
             // Filter by difficulty
             if (difficulty) {
                 drafts = drafts.filter(item => item.difficulty === difficulty);
             }
-            
-            // Filter by compulsory
-            if (compulsory) {
-                drafts = drafts.filter(item => item.category_compulsory === compulsory);
+
+            // Filter by examTrack
+            if (examTrack) {
+                drafts = drafts.filter(item => item.exam_track === examTrack);
             }
-            
-            // Filter by chapter
-            if (chapter) {
-                drafts = drafts.filter(item => item.category_chapter === chapter);
+
+            // Filter by subject
+            if (subject) {
+                drafts = drafts.filter(item => item.subject === subject);
             }
-            
-            // Filter by source
-            if (source) {
-                drafts = drafts.filter(item => (item.source || '').toLowerCase().includes(source));
+
+            // Filter by source（草稿按来源名称包含匹配）
+            if (sourceName) {
+                drafts = drafts.filter(item => (item.source || '').includes(sourceName));
             }
-            
+
             // Search filter for drafts
             if (q) {
                 drafts = drafts.filter(item => {
                     return (item.content || '').toLowerCase().includes(q) ||
                            (item.source || '').toLowerCase().includes(q) ||
-                           (item.category_chapter || '').toLowerCase().includes(q) ||
+                           (item.subject || '').toLowerCase().includes(q) ||
                            (item.review || '').toLowerCase().includes(q) ||
                            (item.tags || '').toLowerCase().includes(q);
                 });
             }
-            
+
             // Sort Drafts by time (updated_at)
             const sortOrder = document.getElementById('filterSort') ? document.getElementById('filterSort').value : 'desc';
             drafts.sort((a, b) => {
                 let dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
                 let dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-                
+
                 if (!dateA && a.id && String(a.id).startsWith('draft-')) {
                     const parts = String(a.id).split('-');
                     if (parts.length > 1) {
@@ -613,7 +625,7 @@ let bankQuestionsRetryTimer = null;
                         dateB = parseInt(parts[1], 10) || 0;
                     }
                 }
-                
+
                 if (dateA !== dateB) {
                     return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
                 }
@@ -628,9 +640,9 @@ let bankQuestionsRetryTimer = null;
             if (currentDraftPage < 1) {
                 currentDraftPage = 1;
             }
-            
+
             qListContainer.innerHTML = '';
-            
+
             if (totalItems === 0) {
                 qListContainer.innerHTML = `
                     <div class="p-6 text-center text-slate-400 text-xs">
@@ -640,32 +652,32 @@ let bankQuestionsRetryTimer = null;
                 renderSidebarPagination(0, 1, 'drafts');
                 return;
             }
-            
+
             const pageItems = drafts.slice((currentDraftPage - 1) * PAGE_LIMIT, currentDraftPage * PAGE_LIMIT);
-            
+
             pageItems.forEach(item => {
                 const difficultyBadge = getDifficultyBadge(item.difficulty);
                 const typeText = getTypeText(item.question_type);
-                
+
                 const itemCard = document.createElement('div');
                 itemCard.setAttribute('data-draft-id', item.id);
-                
+
                 const isActive = EditorState.draftId === item.id;
                 itemCard.className = `p-3.5 mx-1.5 rounded-xl border glass-card hover:bg-white cursor-pointer transition-all duration-200 shadow-sm flex flex-col space-y-2 select-none group relative ${isActive ? 'border-emerald-500 bg-white ring-2 ring-emerald-100 shadow-md' : 'border-slate-200'}`;
-                
+
                 const cleanContent = parseMarkdownWithMath(item.content || '');
-                
+
                 let tagsHtml = '';
                 if (item.tags) {
                     const tagList = item.tags.split(/[,，]+/).map(t => t.trim()).filter(t => t.length > 0);
                     if (tagList.length > 0) {
                         const displayTags = tagList.slice(0, 2);
                         const hiddenCount = tagList.length - 2;
-                        
+
                         displayTags.forEach(tag => {
                             tagsHtml += `<span class="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-300/60 px-1.5 py-0.5 rounded-full flex items-center space-x-0.5"><i class="fa-solid fa-tag text-[7px] text-amber-500 mr-0.5"></i><span class="max-w-[80px] truncate">${window.MathBankSafe.escapeText(tag)}</span></span>`;
                         });
-                        
+
                         if (hiddenCount > 0) {
                             const fullTagsHtml = tagList.map(tag => `<span class="inline-flex items-center whitespace-nowrap"><i class="fa-solid fa-tag text-[7px] text-amber-500/80 mr-1"></i>${window.MathBankSafe.escapeText(tag)}</span>`).join('<span class="mx-1.5 text-amber-300/50">|</span>');
                             tagsHtml += `
@@ -695,7 +707,7 @@ let bankQuestionsRetryTimer = null;
                     </div>
                     <div class="text-xs text-slate-700 leading-relaxed font-medium line-clamp-2 card-formula-render">${cleanContent || '[未填题干]'}</div>
                     <div class="flex justify-between items-center text-[9px] text-slate-400 border-t pt-1.5">
-                        <span class="truncate max-w-[120px] font-semibold text-emerald-600"><i class="fa-solid fa-box mr-0.5"></i>${window.MathBankSafe.escapeText(item.category_knowledge || item.category_chapter || '未分类')}</span>
+                        <span class="truncate max-w-[120px] font-semibold text-emerald-600"><i class="fa-solid fa-box mr-0.5"></i>${window.MathBankSafe.escapeText(item.topic || item.subject || '未分类')}</span>
                         <span class="font-mono text-slate-400">${window.MathBankSafe.escapeText(item.source ? item.source.substring(0, 12) : '草稿暂存')}</span>
                     </div>
                 `;
@@ -707,7 +719,7 @@ let bankQuestionsRetryTimer = null;
                         deleteDraft(item.id);
                     });
                 }
-                
+
                 // Render KaTeX inline for this card
                 try {
                     renderMathInElement(itemCard.querySelector('.card-formula-render'), {
@@ -722,14 +734,14 @@ let bankQuestionsRetryTimer = null;
                 } catch(e) {
                     console.error('KaTeX sidebar rendering error: ', e);
                 }
-                
+
                 itemCard.onclick = () => {
                     checkAndSwitch(() => selectDraft(item));
                 };
-                
+
                 qListContainer.appendChild(itemCard);
             });
-            
+
             renderSidebarPagination(totalItems, currentDraftPage, 'drafts');
         }
 
@@ -741,16 +753,16 @@ let bankQuestionsRetryTimer = null;
                 let drafts = getLocalStorageDrafts();
                 drafts = drafts.filter(d => d.id !== id);
                 setLocalStorageDrafts(drafts);
-                
+
                 showToast('草稿已删除！');
                 updateDraftCountBadge();
-                
+
                 if (EditorState.draftId === id) {
                     // Reset current draft state
                     EditorState.clearDraft();
                     startNewQuestionWithoutPrompt();
                 }
-                
+
                 if (activeSidebarTab === 'drafts') {
                     loadDrafts();
                 }
@@ -767,39 +779,40 @@ let bankQuestionsRetryTimer = null;
                 triggerButton.setAttribute('aria-busy', 'true');
                 triggerButton.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span>加载统计</span>';
             }
-            
+
             // 🟢 先拉取并渲染数据，让弹窗内部 DOM 完全静态就绪后再显示弹窗，完美消除毛玻璃背景下的二次重绘闪烁冲突
             fetch('/api/stats')
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'success') {
                         globalStatsData = data;
-                        
+
                         // Render total counters
                         document.getElementById('statsTotalCount').textContent = data.total_count;
-                        document.getElementById('statsEasyErrorCount').textContent = data.easy_error_count;
-                        document.getElementById('statsChallengeCount').textContent = data.challenge_count;
-                        document.getElementById('statsQiangjiCount').textContent = data.qiangji_count;
-                        
-                        // Populate compulsory stages for stats query
-                        populateStatsQueryCompulsory();
-                        
+                        document.getElementById('statsStandardCount').textContent = data.standard_count;
+                        document.getElementById('statsBasicCount').textContent = data.basic_count;
+                        document.getElementById('statsComprehensiveCount').textContent = data.comprehensive_count;
+                        document.getElementById('statsAdvancedCount').textContent = data.advanced_count;
+
+                        // Populate examTrack stages for stats query
+                        populateStatsQueryExamTrack();
+
                         // Set current local Year and Month
                         const now = new Date();
                         document.getElementById('statsYearSelect').value = now.getFullYear().toString();
                         document.getElementById('statsMonthSelect').value = (now.getMonth() + 1).toString();
-                        
+
                         // Render increments calendar
                         renderStatsCalendar();
-                        
+
                         // Reset query selections
-                        document.getElementById('statsQueryCompulsory').value = '';
-                        const chapSelect = document.getElementById('statsQueryChapter');
-                        chapSelect.innerHTML = '<option value="">-- 先选择学段 --</option>';
-                        chapSelect.disabled = true;
+                        document.getElementById('statsQueryExamTrack').value = '';
+                        const subjectSelect = document.getElementById('statsQuerySubject');
+                        subjectSelect.innerHTML = '<option value="">-- 先选择考试方向 --</option>';
+                        subjectSelect.disabled = true;
                         document.getElementById('statsQueryResultEmpty').classList.remove('hidden');
                         document.getElementById('statsQueryResultData').classList.add('hidden');
-                        
+
                         // 数据和图表完全就绪，再顺滑滑入弹窗并淡化背景
                         document.body.classList.add('modal-active');
                         modal.classList.remove('hidden');
@@ -828,7 +841,7 @@ let bankQuestionsRetryTimer = null;
             const modal = document.getElementById('statsModal');
             window.MathBankModal.close(modal);
             document.body.classList.remove('modal-active');
-            
+
             modal.classList.add('opacity-0');
             modal.querySelector('div').classList.remove('scale-100');
             modal.querySelector('div').classList.add('scale-95');
@@ -837,76 +850,76 @@ let bankQuestionsRetryTimer = null;
             }, 300);
         }
 
-        function populateStatsQueryCompulsory() {
-            const compSelect = document.getElementById('statsQueryCompulsory');
-            compSelect.innerHTML = '<option value="">-- 选择学段 --</option>';
-            if (globalStatsData && globalStatsData.compulsory_chapter_counts) {
-                Object.keys(globalStatsData.compulsory_chapter_counts).forEach(comp => {
-                    compSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(comp)}">${window.MathBankSafe.escapeText(comp)}</option>`;
+        function populateStatsQueryExamTrack() {
+            const trackSelect = document.getElementById('statsQueryExamTrack');
+            trackSelect.innerHTML = '<option value="">-- 选择考试方向 --</option>';
+            if (globalStatsData && globalStatsData.exam_track_subject_counts) {
+                Object.keys(globalStatsData.exam_track_subject_counts).forEach(comp => {
+                    trackSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(comp)}">${window.MathBankSafe.escapeText(comp)}</option>`;
                 });
             }
         }
 
-        function onStatsQueryCompulsoryChange() {
-            const compVal = document.getElementById('statsQueryCompulsory').value;
-            const chapSelect = document.getElementById('statsQueryChapter');
-            
-            chapSelect.innerHTML = '<option value="">-- 选择章节 --</option>';
+        function onStatsQueryExamTrackChange() {
+            const compVal = document.getElementById('statsQueryExamTrack').value;
+            const subjectSelect = document.getElementById('statsQuerySubject');
+
+            subjectSelect.innerHTML = '<option value="">-- 选择科目 --</option>';
             document.getElementById('statsQueryResultEmpty').classList.remove('hidden');
             document.getElementById('statsQueryResultData').classList.add('hidden');
-            
-            if (compVal && globalStatsData && globalStatsData.compulsory_chapter_counts[compVal]) {
-                chapSelect.disabled = false;
-                Object.keys(globalStatsData.compulsory_chapter_counts[compVal]).forEach(chap => {
-                    chapSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(chap)}">${window.MathBankSafe.escapeText(chap)}</option>`;
+
+            if (compVal && globalStatsData && globalStatsData.exam_track_subject_counts[compVal]) {
+                subjectSelect.disabled = false;
+                Object.keys(globalStatsData.exam_track_subject_counts[compVal]).forEach(chap => {
+                    subjectSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(chap)}">${window.MathBankSafe.escapeText(chap)}</option>`;
                 });
             } else {
-                chapSelect.disabled = true;
+                subjectSelect.disabled = true;
             }
         }
 
-        async function onStatsQueryChapterChange() {
-            const compVal = document.getElementById('statsQueryCompulsory').value;
-            const chapVal = document.getElementById('statsQueryChapter').value;
-            
+        async function onStatsQuerySubjectChange() {
+            const compVal = document.getElementById('statsQueryExamTrack').value;
+            const chapVal = document.getElementById('statsQuerySubject').value;
+
             const emptyPanel = document.getElementById('statsQueryResultEmpty');
             const dataPanel = document.getElementById('statsQueryResultData');
-            
+
             if (!compVal || !chapVal) {
                 emptyPanel.classList.remove('hidden');
                 dataPanel.classList.add('hidden');
                 return;
             }
-            
+
             emptyPanel.classList.add('hidden');
             dataPanel.classList.remove('hidden');
-            
-            // Get count for selected chapter
-            const count = globalStatsData.compulsory_chapter_counts[compVal][chapVal] || 0;
+
+            // Get count for selected subject
+            const count = globalStatsData.exam_track_subject_counts[compVal][chapVal] || 0;
             document.getElementById('statsQueryCount').textContent = count;
-            
-            // Query local questions list to get knowledge point distributions
+
+            // Query local questions list to get topic point distributions
             const params = new URLSearchParams();
-            params.append('compulsory', compVal);
-            params.append('chapter', chapVal);
-            
-            const listContainer = document.getElementById('statsQueryKnowledgeList');
-            listContainer.innerHTML = '<div class="text-[10px] text-slate-400 py-4 text-center"><i class="fa-solid fa-spinner animate-spin mr-1"></i>正在计算知识点分布...</div>';
-            
+            params.append('exam_track', compVal);
+            params.append('subject', chapVal);
+
+            const listContainer = document.getElementById('statsQueryTopicList');
+            listContainer.innerHTML = '<div class="text-[10px] text-slate-400 py-4 text-center"><i class="fa-solid fa-spinner animate-spin mr-1"></i>正在计算考点分布...</div>';
+
             try {
                 const response = await fetch(`/api/questions?${params.toString()}`);
                 const questions = await response.json();
-                
-                // Group by knowledge
+
+                // Group by topic
                 const knowStats = {};
                 questions.forEach(q => {
-                    const know = q.category_knowledge || '未细分知识点';
+                    const know = q.topic || '未细分考点';
                     knowStats[know] = (knowStats[know] || 0) + 1;
                 });
-                
+
                 listContainer.innerHTML = '';
                 if (Object.keys(knowStats).length === 0) {
-                    listContainer.innerHTML = '<div class="text-[10px] text-slate-500 text-center py-4">本章暂无细分知识点</div>';
+                    listContainer.innerHTML = '<div class="text-[10px] text-slate-500 text-center py-4">本科目暂无细分考点</div>';
                 } else {
                     Object.entries(knowStats).forEach(([know, knCount]) => {
                         const pct = Math.round((knCount / count) * 100);
@@ -932,37 +945,37 @@ let bankQuestionsRetryTimer = null;
             const year = parseInt(document.getElementById('statsYearSelect').value);
             const month = parseInt(document.getElementById('statsMonthSelect').value);
             const grid = document.getElementById('statsCalendarGrid');
-            
+
             grid.innerHTML = '';
-            
+
             // Get first day of month (0 = Sunday, 6 = Saturday)
             const firstDayIndex = new Date(year, month - 1, 1).getDay();
             // Get total days in month
             const daysInMonth = new Date(year, month, 0).getDate();
-            
+
             // Pre-fill empty days for previous month alignment
             for (let i = 0; i < firstDayIndex; i++) {
                 const emptyCell = document.createElement('div');
                 emptyCell.className = "bg-slate-100/30 dark:bg-slate-800/20 rounded-lg border border-transparent";
                 grid.appendChild(emptyCell);
             }
-            
+
             // Daily additions data
             const dailyAdds = (globalStatsData && globalStatsData.daily_adds) ? globalStatsData.daily_adds : {};
-            
+
             // Generate cells
             for (let day = 1; day <= daysInMonth; day++) {
                 const dayCell = document.createElement('div');
-                
+
                 // Format YYYY-MM-DD
                 const mStr = String(month).padStart(2, '0');
                 const dStr = String(day).padStart(2, '0');
                 const dateStr = `${year}-${mStr}-${dStr}`;
-                
+
                 const count = dailyAdds[dateStr] || 0;
-                
+
                 const isToday = (new Date().getFullYear() === year && new Date().getMonth() + 1 === month && new Date().getDate() === day);
-                
+
                 if (count > 0) {
                     dayCell.className = `p-1 bg-rose-50/80 dark:bg-rose-500/15 border border-rose-200/60 dark:border-rose-500/30 hover:bg-rose-100/80 dark:hover:bg-rose-500/25 rounded-lg flex flex-col justify-between items-center transition-all shadow-sm cursor-help select-none ${isToday ? 'ring-2 ring-rose-400 dark:ring-rose-400' : ''}`;
                     dayCell.title = `当天最终录入：${count} 道题目`;
@@ -976,10 +989,10 @@ let bankQuestionsRetryTimer = null;
                         <span class="text-[10px] font-medium text-slate-600 dark:text-slate-300 ${isToday ? 'bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-200 px-1 py-0.5 rounded-md font-bold' : ''}">${day}</span>
                     `;
                 }
-                
+
                 grid.appendChild(dayCell);
             }
-            
+
             // Fill remaining grid spaces to keep calendar layout perfect
             const totalCellsUsed = firstDayIndex + daysInMonth;
             const remainingCells = 42 - totalCellsUsed;
@@ -1001,67 +1014,67 @@ let bankQuestionsRetryTimer = null;
         }
 
         function populateCategoryDropdowns() {
-            const compSelect = document.getElementById('editCompulsory');
-            const chapSelect = document.getElementById('editChapter');
-            const knowSelect = document.getElementById('editKnowledge');
-            
-            if (!compSelect || !chapSelect || !knowSelect) return;
+            const trackSelect = document.getElementById('editExamTrack');
+            const subjectSelect = document.getElementById('editSubject');
+            const topicSelect = document.getElementById('editTopic');
+
+            if (!trackSelect || !subjectSelect || !topicSelect) return;
             if (!categoryTree || typeof categoryTree !== 'object') {
                 console.warn('[Security Shield] 分类数据未准备完毕，跳过编辑区分类级联填充');
                 return;
             }
-            
+
             // Backup selection values to prevent losing them during async reloads
-            const selectedComp = compSelect.value;
-            const selectedChap = chapSelect.value;
-            const selectedKnow = knowSelect.value;
-            
-            // 1. Compulsory
-            compSelect.innerHTML = '<option value="">-- 选择学段 --</option>';
+            const selectedComp = trackSelect.value;
+            const selectedChap = subjectSelect.value;
+            const selectedKnow = topicSelect.value;
+
+            // 1. Exam track
+            trackSelect.innerHTML = '<option value="">-- 选择考试方向 --</option>';
             Object.keys(categoryTree).forEach(c => {
-                compSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(c)}">${window.MathBankSafe.escapeText(c)}</option>`;
+                trackSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(c)}">${window.MathBankSafe.escapeText(c)}</option>`;
             });
-            
-            compSelect.onchange = () => {
-                const comp = compSelect.value;
-                chapSelect.innerHTML = '<option value="">-- 选择章节 --</option>';
-                knowSelect.innerHTML = '<option value="">-- 先选择章节 --</option>';
-                knowSelect.disabled = true;
-                
+
+            trackSelect.onchange = () => {
+                const comp = trackSelect.value;
+                subjectSelect.innerHTML = '<option value="">-- 选择科目 --</option>';
+                topicSelect.innerHTML = '<option value="">-- 先选择科目 --</option>';
+                topicSelect.disabled = true;
+
                 if (comp && categoryTree[comp]) {
-                    chapSelect.disabled = false;
+                    subjectSelect.disabled = false;
                     Object.keys(categoryTree[comp]).forEach(ch => {
-                        chapSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(ch)}">${window.MathBankSafe.escapeText(ch)}</option>`;
+                        subjectSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(ch)}">${window.MathBankSafe.escapeText(ch)}</option>`;
                     });
                 } else {
-                    chapSelect.disabled = true;
+                    subjectSelect.disabled = true;
                 }
             };
-            
-            chapSelect.onchange = () => {
-                const comp = compSelect.value;
-                const chap = chapSelect.value;
-                knowSelect.innerHTML = '<option value="">-- 选择小节 (可不选，默认整章) --</option>';
-                
+
+            subjectSelect.onchange = () => {
+                const comp = trackSelect.value;
+                const chap = subjectSelect.value;
+                topicSelect.innerHTML = '<option value="">-- 选择考点 (可不选，默认整科目) --</option>';
+
                 if (comp && chap && categoryTree[comp][chap]) {
-                    knowSelect.disabled = false;
+                    topicSelect.disabled = false;
                     categoryTree[comp][chap].forEach(k => {
-                        knowSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(k)}">${window.MathBankSafe.escapeText(k)}</option>`;
+                        topicSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(k)}">${window.MathBankSafe.escapeText(k)}</option>`;
                     });
                 } else {
-                    knowSelect.disabled = true;
+                    topicSelect.disabled = true;
                 }
             };
 
             // Restore backed up values if they exist in the new categoryTree
             if (selectedComp && categoryTree[selectedComp]) {
-                compSelect.value = selectedComp;
-                compSelect.onchange();
+                trackSelect.value = selectedComp;
+                trackSelect.onchange();
                 if (selectedChap && categoryTree[selectedComp][selectedChap]) {
-                    chapSelect.value = selectedChap;
-                    chapSelect.onchange();
+                    subjectSelect.value = selectedChap;
+                    subjectSelect.onchange();
                     if (selectedKnow && categoryTree[selectedComp][selectedChap].includes(selectedKnow)) {
-                        knowSelect.value = selectedKnow;
+                        topicSelect.value = selectedKnow;
                     }
                 }
             }
@@ -1069,49 +1082,49 @@ let bankQuestionsRetryTimer = null;
 
         // Populate Categories in Filters
         function populateFilterDropdowns() {
-            const compSelect = document.getElementById('filterCompulsory');
-            const chapSelect = document.getElementById('filterChapter');
-            
-            if (!compSelect || !chapSelect) return;
+            const trackSelect = document.getElementById('filterExamTrack');
+            const subjectSelect = document.getElementById('filterSubject');
+
+            if (!trackSelect || !subjectSelect) return;
             if (!categoryTree || typeof categoryTree !== 'object') {
                 console.warn('[Security Shield] 分类数据未准备完毕，跳过过滤框分类级联填充');
                 return;
             }
-            
-            compSelect.innerHTML = '<option value="">所有学段/必选修</option>';
+
+            trackSelect.innerHTML = '<option value="">所有考试方向</option>';
             Object.keys(categoryTree).forEach(c => {
-                compSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(c)}">${window.MathBankSafe.escapeText(c)}</option>`;
+                trackSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(c)}">${window.MathBankSafe.escapeText(c)}</option>`;
             });
-            
-            compSelect.onchange = () => {
-                const comp = compSelect.value;
-                chapSelect.innerHTML = '<option value="">所有章节</option>';
-                
+
+            trackSelect.onchange = () => {
+                const comp = trackSelect.value;
+                subjectSelect.innerHTML = '<option value="">所有科目</option>';
+
                 if (comp && categoryTree[comp]) {
-                    chapSelect.classList.remove('hidden');
+                    subjectSelect.classList.remove('hidden');
                     Object.keys(categoryTree[comp]).forEach(ch => {
-                        chapSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(ch)}">${window.MathBankSafe.escapeText(ch)}</option>`;
+                        subjectSelect.innerHTML += `<option value="${window.MathBankSafe.escapeAttribute(ch)}">${window.MathBankSafe.escapeText(ch)}</option>`;
                     });
                 } else {
-                    chapSelect.classList.add('hidden');
+                    subjectSelect.classList.add('hidden');
                 }
-                
+
                 // Reset page numbers
                 currentBankPage = 1;
                 currentDraftPage = 1;
-                
+
                 if (activeSidebarTab === 'bank') {
                     loadQuestions(); // Refilter
                 } else {
                     loadDrafts(); // Refilter
                 }
             };
-            
-            chapSelect.onchange = () => {
+
+            subjectSelect.onchange = () => {
                 // Reset page numbers
                 currentBankPage = 1;
                 currentDraftPage = 1;
-                
+
                 if (activeSidebarTab === 'bank') {
                     loadQuestions(); // Refilter
                 } else {
@@ -1138,28 +1151,28 @@ let bankQuestionsRetryTimer = null;
             const q = document.getElementById('searchInput').value;
             const qtype = document.getElementById('filterType').value;
             const difficulty = document.getElementById('filterDifficulty').value;
-            const compulsory = document.getElementById('filterCompulsory').value;
-            const chapter = document.getElementById('filterChapter').value;
-            const source = document.getElementById('filterSource') ? document.getElementById('filterSource').value : '';
+            const examTrack = document.getElementById('filterExamTrack').value;
+            const subject = document.getElementById('filterSubject').value;
+            const sourceId = document.getElementById('filterSourceSelect') ? document.getElementById('filterSourceSelect').value : '';
             const sortOrder = document.getElementById('filterSort') ? document.getElementById('filterSort').value : 'desc';
             const requestedPage = Math.max(1, currentBankPage);
-            
+
             const params = new URLSearchParams();
             if (q) params.append('q', q);
             if (qtype) params.append('qtype', qtype);
             if (difficulty) params.append('difficulty', difficulty);
-            if (compulsory) params.append('compulsory', compulsory);
-            if (chapter) params.append('chapter', chapter);
-            if (source) params.append('source', source);
+            if (examTrack) params.append('exam_track', examTrack);
+            if (subject) params.append('subject', subject);
+            if (sourceId) params.append('source_id', sourceId);
             params.append('page', String(requestedPage));
             params.append('page_size', String(PAGE_LIMIT));
             params.append('sort', sortOrder === 'asc' ? 'asc' : 'desc');
-            
+
             const qListContainer = document.getElementById('questionsList');
             if (!qListContainer) return;
             qListContainer.setAttribute('aria-busy', 'true');
             const fetchOptions = requestController ? { signal: requestController.signal } : undefined;
-            
+
             fetch(`/api/questions?${params.toString()}`, fetchOptions)
                 .then(r => {
                     if (!r.ok) {
@@ -1187,7 +1200,7 @@ let bankQuestionsRetryTimer = null;
 
                     currentBankPage = Math.min(responsePage, totalPages);
                     qListContainer.innerHTML = '';
-                    
+
                     if (totalItems === 0) {
                         qListContainer.innerHTML = `
                             <div class="p-6 text-center text-slate-400 text-xs">
@@ -1197,29 +1210,29 @@ let bankQuestionsRetryTimer = null;
                         renderSidebarPagination(0, 1, 'bank');
                         return;
                     }
-                    
+
                     questions.forEach(item => {
                         // Create card element
                         const difficultyBadge = getDifficultyBadge(item.difficulty);
                         const typeText = getTypeText(item.question_type);
-                        
+
                         const itemCard = document.createElement('div');
                         itemCard.className = `question-card p-3.5 mx-1.5 flex flex-col space-y-2 select-none group relative ${EditorState.questionId === item.id ? 'active' : ''}`;
                         itemCard.dataset.id = item.id;
-                        
+
                         const cleanContent = parseMarkdownWithMath(item.content || '');
-                        
+
                         let tagsHtml = '';
                         if (item.tags) {
                             const tagList = item.tags.split(/[,，]+/).map(t => t.trim()).filter(t => t.length > 0);
                             if (tagList.length > 0) {
                                 const displayTags = tagList.slice(0, 2);
                                 const hiddenCount = tagList.length - 2;
-                                
+
                                 displayTags.forEach(tag => {
                                     tagsHtml += `<span class="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-300/60 px-1.5 py-0.5 rounded-full flex items-center space-x-0.5"><i class="fa-solid fa-tag text-[7px] text-amber-500 mr-0.5"></i><span class="max-w-[80px] truncate">${window.MathBankSafe.escapeText(tag)}</span></span>`;
                                 });
-                                
+
                                 if (hiddenCount > 0) {
                                     const fullTagsHtml = tagList.map(tag => `<span class="inline-flex items-center whitespace-nowrap"><i class="fa-solid fa-tag text-[7px] text-amber-500/80 mr-1"></i>${window.MathBankSafe.escapeText(tag)}</span>`).join('<span class="mx-1.5 text-amber-300/50">|</span>');
                                     tagsHtml += `
@@ -1255,11 +1268,11 @@ let bankQuestionsRetryTimer = null;
                                 <span>录入：${window.MathBankSafe.escapeText(formatChineseDate(item.created_at))}</span>
                             </div>
                             <div class="flex justify-between items-center text-[9px] text-slate-400 border-t pt-1.5">
-                                <span class="truncate max-w-[120px] font-semibold"><i class="fa-solid fa-folder-open mr-0.5"></i>${window.MathBankSafe.escapeText(item.category_knowledge || item.category_chapter || '未分类')}</span>
-                                <span class="font-mono text-slate-400">${window.MathBankSafe.escapeText(item.source ? item.source.substring(0, 12) : '本地录入')}</span>
+                                <span class="truncate max-w-[120px] font-semibold"><i class="fa-solid fa-folder-open mr-0.5"></i>${window.MathBankSafe.escapeText(item.topic || item.subject || '未分类')}</span>
+                                <span class="font-mono text-slate-400">${window.MathBankSafe.escapeText(item.source_label ? item.source_label.substring(0, 14) : '本地录入')}</span>
                             </div>
                         `;
-                        
+
                         // Render KaTeX inline for this card
                         try {
                             renderMathInElement(itemCard.querySelector('.card-formula-render'), {
@@ -1274,14 +1287,14 @@ let bankQuestionsRetryTimer = null;
                         } catch(e) {
                             console.error('KaTeX sidebar rendering error: ', e);
                         }
-                        
+
                         itemCard.onclick = () => {
                             checkAndSwitch(() => selectQuestion(item));
                         };
-                        
+
                         qListContainer.appendChild(itemCard);
                     });
-                    
+
                     renderSidebarPagination(totalItems, currentBankPage, 'bank');
                 })
                 .catch(err => {
@@ -1325,16 +1338,16 @@ let bankQuestionsRetryTimer = null;
         function renderSidebarPagination(totalItems, currentPage, tabType) {
             const container = document.getElementById('sidebarPagination');
             if (!container) return;
-            
+
             if (totalItems === 0) {
                 container.innerHTML = '';
                 container.style.display = 'none';
                 return;
             }
             container.style.display = 'flex';
-            
+
             const totalPages = Math.ceil(totalItems / PAGE_LIMIT) || 1;
-            
+
             // Build pages array with sliding window folding
             let pages = [];
             if (totalPages <= 5) {
@@ -1343,32 +1356,32 @@ let bankQuestionsRetryTimer = null;
                 }
             } else {
                 pages.push(1);
-                
+
                 let start = Math.max(2, currentPage - 1);
                 let end = Math.min(totalPages - 1, currentPage + 1);
-                
+
                 if (currentPage <= 3) {
                     end = 4;
                 }
                 if (currentPage >= totalPages - 2) {
                     start = totalPages - 3;
                 }
-                
+
                 if (start > 2) {
                     pages.push('...');
                 }
-                
+
                 for (let i = start; i <= end; i++) {
                     pages.push(i);
                 }
-                
+
                 if (end < totalPages - 1) {
                     pages.push('...');
                 }
-                
+
                 pages.push(totalPages);
             }
-            
+
             let pagesHtml = '';
             pages.forEach(p => {
                 if (p === '...') {
@@ -1377,7 +1390,7 @@ let bankQuestionsRetryTimer = null;
                     pagesHtml += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" onclick="goToSidebarPage(${p}, '${tabType}')">${p}</button>`;
                 }
             });
-            
+
             container.innerHTML = `
                 <div class="flex items-center justify-between text-[10px] text-slate-400 font-semibold px-0.5">
                     <span>共 ${totalItems} 题 / ${totalPages} 页</span>
@@ -1398,7 +1411,7 @@ let bankQuestionsRetryTimer = null;
                 </div>
             `;
         }
-        
+
         function goToSidebarPage(page, tabType) {
             if (tabType === 'bank') {
                 currentBankPage = page;
@@ -1413,7 +1426,7 @@ let bankQuestionsRetryTimer = null;
                 qListContainer.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
-        
+
         function jumpToSidebarPage(value, maxPage, tabType) {
             let page = parseInt(value, 10);
             if (isNaN(page)) return;
@@ -1437,10 +1450,10 @@ let bankQuestionsRetryTimer = null;
             const sourceEl = document.getElementById('paperFooterSource');
             const editQType = document.getElementById('editQType');
             const editDifficulty = document.getElementById('editDifficulty');
-            const editSource = document.getElementById('editSource');
+            const editSourceSelect = document.getElementById('editSourceSelect');
             const editTags = document.getElementById('editTags');
 
-            if (!badges || !sourceEl || !editQType || !editDifficulty || !editSource) {
+            if (!badges || !sourceEl || !editQType || !editDifficulty || !editSourceSelect) {
                 return;
             }
 
@@ -1472,7 +1485,7 @@ let bankQuestionsRetryTimer = null;
                 ${createdAtBadge}
                 ${paperTagsHtml}
             `;
-            sourceEl.textContent = `来源: ${editSource.value || '本地教研录入'}`;
+            sourceEl.textContent = `来源: ${(window.SourceForm && SourceForm.label()) || '本地教研录入'}`;
         }
         window.renderEditorPaperMeta = renderEditorPaperMeta;
 
@@ -1541,7 +1554,7 @@ let bankQuestionsRetryTimer = null;
                 const text = editContent.value;
                 const previewContainer = document.getElementById('contentPreview');
                 const paperContainer = document.getElementById('paperContent');
-                
+
                 // Automatically sync illustrations list with text content
                 if (uploadedImages.length > 0) {
                     const initialLength = uploadedImages.length;
@@ -1550,19 +1563,19 @@ let bankQuestionsRetryTimer = null;
                         renderIllustrationBadges();
                     }
                 }
-                
+
                 if (!text.trim()) {
                     previewContainer.innerHTML = '<p class="text-slate-400 italic">在左侧框中输入，此处将实时展示最终排版效果...</p>';
                     paperContainer.innerHTML = '<p class="text-slate-400 italic text-center py-10">输入题干内容后，此处将展示实时试卷排版效果。</p>';
                     return;
                 }
-                
+
                 // Formatted content (standard Markdown with protected LaTeX to HTML)
                 let html = parseMarkdownWithMath(text);
-                
+
                 previewContainer.innerHTML = html;
                 paperContainer.innerHTML = html;
-                
+
                 // Trigger KaTeX render
                 try {
                     renderMathInElement(previewContainer, {
@@ -1598,17 +1611,17 @@ let bankQuestionsRetryTimer = null;
                 const text = editAnswer.value;
                 const previewContainer = document.getElementById('answerPreview');
                 const paperContainer = document.getElementById('paperAnalysisContent');
-                
+
                 if (!text.trim()) {
                     previewContainer.innerHTML = '<p class="text-slate-400 italic">在左侧输入解析内容，此处将实时展示极其精美的 LaTeX 排版...</p>';
                     paperContainer.innerHTML = '<p class="text-slate-400 italic">暂无解析内容。</p>';
                     return;
                 }
-                
+
                 let html = parseMarkdownWithMath(text);
                 previewContainer.innerHTML = html;
                 paperContainer.innerHTML = html;
-                
+
                 try {
                     renderMathInElement(previewContainer, {
                         delimiters: [
@@ -1632,27 +1645,27 @@ let bankQuestionsRetryTimer = null;
                     console.error(e);
                 }
             };
-            
+
             // Attach inputs
             editContent.addEventListener('input', debounce(updateContentPreview, 250));
             editAnswer.addEventListener('input', debounce(updateAnswerPreview, 250));
-            
+
             const editReview = document.getElementById('editReview');
             const updateReviewPreview = () => {
                 const text = editReview.value;
                 const wrapper = document.getElementById('paperReviewWrapper');
                 const content = document.getElementById('paperReviewContent');
-                
+
                 if (!text.trim()) {
                     if (wrapper) wrapper.classList.add('hidden');
                     if (content) content.innerHTML = '';
                     return;
                 }
-                
+
                 if (wrapper) wrapper.classList.remove('hidden');
                 let html = parseMarkdownWithMath(text);
                 if (content) content.innerHTML = html;
-                
+
                 try {
                     if (content) {
                         renderMathInElement(content, {
@@ -1670,23 +1683,26 @@ let bankQuestionsRetryTimer = null;
                 }
             };
             editReview.addEventListener('input', debounce(updateReviewPreview, 250));
-            
+
             // Expose update preview functions to global scope to allow synchronous direct updates when loading questions/drafts
             window.updateContentPreview = updateContentPreview;
             window.updateAnswerPreview = updateAnswerPreview;
             window.updateReviewPreview = updateReviewPreview;
-            
+
             // Keep all editor metadata preview updates on one rendering path.
             const editQType = document.getElementById('editQType');
             const editDifficulty = document.getElementById('editDifficulty');
-            const editSource = document.getElementById('editSource');
             const editTags = document.getElementById('editTags');
 
             editQType.addEventListener('change', renderEditorPaperMeta);
             editDifficulty.addEventListener('change', renderEditorPaperMeta);
-            editSource.addEventListener('input', renderEditorPaperMeta);
+            ['editSourceSelect', 'editSourceNumber', 'editSourceScope'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', renderEditorPaperMeta);
+            });
             if (editTags) editTags.addEventListener('input', renderEditorPaperMeta);
-            
+
             // Initial render of meta badges
             renderEditorPaperMeta();
         }
@@ -1716,7 +1732,7 @@ let bankQuestionsRetryTimer = null;
                 const preString = fullString.substring(0, offset).replace(/\\\$/g, '');
                 const dollarsBefore = (preString.match(/\$/g) || []).length;
                 const isInsideMath = (dollarsBefore % 2 !== 0) || (preDollar === '$');
-                
+
                 function isLengthStr(str) {
                     return /^\s*\d+(?:\.\d+)?\s*(?:cm|mm|in|pt|pc|em|ex)\s*$/i.test(str || '');
                 }
@@ -1766,7 +1782,7 @@ let bankQuestionsRetryTimer = null;
 
         function preprocessFormulaForKaTeX(text) {
             if (!text) return "";
-            
+
             // Clean up any historical \vphantom{...} or \strut from underline text to prevent KaTeX rendering artifact letters
             let clean = text.replace(/\\vphantom\s*\{\s*[^}]*?\}/g, '')
                             .replace(/\\strut\b/g, '');
@@ -1794,7 +1810,7 @@ let bankQuestionsRetryTimer = null;
             clean = clean.replace(/(\\underline\s*\{[^}]*?)\$([^$]+?)\$([^}]*?\})/g, function(match, p1, p2, p3) {
                 return '$' + p1 + p2 + p3 + '$';
             });
-            
+
             // If \underline{\hspace{...}} is directly exposed outside math environments, wrap it inside '$...$' so KaTeX scanner can parse it!
             clean = clean.replace(/(\$?)\\underline\s*\{\s*\\hspace\s*\{([^}]+?)\}\s*\}(\$?)/g, function(match, p1, p2, p3, offset, fullString) {
                 const preString = fullString.substring(0, offset).replace(/\\\$/g, '');
@@ -1804,28 +1820,28 @@ let bankQuestionsRetryTimer = null;
                 }
                 return '$\\underline{\\hspace{' + p2 + '}}$';
             });
-            
+
             // Protect math blocks to avoid replacing spacing commands inside math environments
             const placeholders = [];
             let placeholderCounter = 0;
-            
+
             function savePlaceholder(match) {
                 const placeholder = `@@MATH_PLACEHOLDER_${placeholderCounter++}@@`;
                 placeholders.push({ placeholder, original: match });
                 return placeholder;
             }
-            
+
             let tempText = clean;
             tempText = tempText.replace(/\$\$([\s\S]*?)\$\$/g, savePlaceholder)
                                .replace(/\\\[([\s\S]*?)\\\]/g, savePlaceholder)
                                .replace(/\\\(([\s\S]*?)\\\)/g, savePlaceholder)
                                .replace(/\$([^\$]+?)\$/g, savePlaceholder);
-            
+
             // Auto-heal exposed LaTeX math environments (e.g. \begin{cases}...\end{cases}) that lack $...$ wrapper
             tempText = tempText.replace(/\\begin\{(cases|aligned|matrix|pmatrix|bmatrix|array|equation|gather)\}([\s\S]*?)\\end\{\1\}/g, function(match) {
                 return savePlaceholder('$' + match.trim() + '$');
             });
-            
+
             // Strip HTML tags from non-math parts
             tempText = tempText.replace(/<[^>]*>/g, '');
 
@@ -1833,7 +1849,7 @@ let bankQuestionsRetryTimer = null;
             // Convert only the protected-and-sanitized text portion into the
             // same empty answer parentheses used by the A4 paper preview.
             tempText = transformExamZhParenForPreview(tempText);
-            
+
             // Process LaTeX lists & environments outside math blocks
             tempText = tempText.replace(/\\\\\s*\\begin\{/g, '\\begin{')
                                .replace(/\\begin\{([^}]+?)\}\s*\\\\/g, '\\begin{$1}')
@@ -2078,10 +2094,10 @@ let bankQuestionsRetryTimer = null;
                                .replace(/\\\\quad/g, '&nbsp;&nbsp;')
                                .replace(/\\qquad/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
                                .replace(/\\quad/g, '&nbsp;&nbsp;');
-                               
+
             // Replace LaTeX line breaks with HTML br tags outside math environments
             tempText = tempText.replace(/\\\\/g, '<br>');
-            
+
             // 小问分行自愈：单回车或标点后紧跟小问编号 (如 \n(1), \n(2), \n(i), \n（1）) 自动升格为段落换行 <br><br>
             tempText = tempText.replace(/(?:\r?\n|\s+|[。；;!！\.]\s*)([(（]?(?:[1-9]|10|[ivxIVX]+|[①②③④⑤⑥⑦⑧⑨⑩])[)）\.]|\([1-9]\)|（[1-9]）|\([ivxIVX]+\)|（[ivxIVX]+）)(?=\s*[\u4e00-\u9fa5a-zA-Z\$])/g, '<br><br>$1 ');
 
@@ -2089,7 +2105,7 @@ let bankQuestionsRetryTimer = null;
             tempText = tempText.replace(/\r\n/g, '\n')
                                .replace(/\n\n+/g, '<br><br>')
                                .replace(/\n/g, ' ');
-                               
+
             // 转换 Markdown 题目插图与配图语法 ![](/static/uploads/xxx.png) 为精美自适应预览图
             tempText = tempText.replace(/!\[(.*?)\]\(([^)]+)\)/g, function(match, alt, src) {
                 const safeSrc = window.MathBankSafe.safeImageUrl(src);
@@ -2097,7 +2113,7 @@ let bankQuestionsRetryTimer = null;
                 const safeAlt = window.MathBankSafe.escapeAttribute(alt || '题目配图');
                 return `<div class="my-2.5 text-center"><img src="${window.MathBankSafe.escapeAttribute(safeSrc)}" alt="${safeAlt}" class="max-w-[220px] max-h-[180px] object-contain rounded-lg border border-slate-200 shadow-sm inline-block cursor-zoom-in hover:shadow-sm hover:scale-[1.02] transition-all" data-safe-image-open="true" title="点击在新标签页查看高清原图"></div>`;
             });
-                               
+
             // Restore math blocks with HTML escaping
             function escapeHtml(str) {
                 return str.replace(/&/g, '&amp;')
@@ -2108,11 +2124,11 @@ let bankQuestionsRetryTimer = null;
             placeholders.forEach(({ placeholder, original }) => {
                 tempText = tempText.replace(placeholder, () => escapeHtml(original));
             });
-            
+
             return tempText;
         }
         window.preprocessFormulaForKaTeX = preprocessFormulaForKaTeX;
-            
+
         function parseMarkdownWithMath(text) {
             if (!text) return "";
             return window.MathBankSafe.sanitizeRichHtml(preprocessFormulaForKaTeX(text));
@@ -2122,17 +2138,17 @@ let bankQuestionsRetryTimer = null;
         // Format raw OCR questions by detecting choice options and introducing nice line breaks
         function formatQuestionContent(text) {
             if (!text) return "";
-            
+
             // Strip the LaTeX negative space command "\!" and thin space "\," which are cluttering
             let formatted = text.replace(/\\!/g, '').replace(/\\,/g, '');
-            
+
             // 1. Check if it is actually a choice question with options A, B, C, D
             const hasA = /[\s,，、]*\bA(?:[\.\s、，．]+|\b|\))/i.test(formatted);
             const hasB = /[\s,，、]*\bB(?:[\.\s、，．]+|\b|\))/i.test(formatted);
             const hasC = /[\s,，、]*\bC(?:[\.\s、，．]+|\b|\))/i.test(formatted);
             const hasD = /[\s,，、]*\bD(?:[\.\s、，．]+|\b|\))/i.test(formatted);
             const isChoiceQuestion = hasA && hasB && hasC && hasD;
-            
+
             // Protect math blocks from being replaced, and clean up formula-level exclamation noise
             const parts = formatted.split(/(\$\$[\s\S]*?\$\$|\$[^\$]+?\$)/g);
             for (let i = 0; i < parts.length; i++) {
@@ -2158,10 +2174,10 @@ let bankQuestionsRetryTimer = null;
                 }
             }
             formatted = parts.join('');
-            
+
             // Clean up any leading/trailing duplicate newlines
             formatted = formatted.replace(/\n{3,}/g, '\n\n').trim();
-            
+
             return formatted;
         }
 
