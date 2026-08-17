@@ -1,0 +1,40 @@
+{
+  "name": "李林880题·数学一·高等数学篇",
+  "series": "李林880",
+  "exam_track": "数学一",
+  "subject": "高等数学",
+  "question_book": {
+    "pdf": "docs/【A4紧凑版】880数一高数篇做题本.pdf",
+    "cache_key": "880-shuyi-gaoshu-zuotiben",
+    "start_page": 2
+  },
+  "solution_book": {
+    "pdf": "docs/880数一解析分册.pdf",
+    "cache_key": "880-shuyi-jiexi",
+    "start_page": 2,
+    "stop_chapter": "第十章"
+  },
+  "blocks": {
+    "基础题": {"source": "880基础篇", "difficulty": "basic"},
+    "综合题": {"source": "880综合篇", "difficulty": "comprehensive"},
+    "拓展题": {"source": "880拓展篇", "difficulty": "advanced"}
+  },
+  "question_types": {
+    "选择题": "single_choice",
+    "填空题": "fill_in_blank",
+    "解答题": "detailed_answer",
+    "证明题": "detailed_answer"
+  },
+  "chapter_topics": {
+    "1": "函数、极限与连续",
+    "2": "一元函数微分学",
+    "3": "一元函数积分学",
+    "4": "向量代数与空间解析几何",
+    "5": "多元函数微分学",
+    "6": "重积分",
+    "7": "常微分方程",
+    "8": "无穷级数",
+    "9": "曲线积分与曲面积分"
+  },
+  "figure_pages": [14, 21, 23, 43, 44, 75, 92]
+}
