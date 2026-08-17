@@ -1,12 +1,12 @@
 # AGENTS.md - 本地化数学题库管理系统 开发与 AI 代理指南
 
 ## 1. 项目概述
-本项目是一个本地运行的半自动化数学题库管理工作台。核心目标是通过极简的本地化部署，实现高质量图文混排数学题目（尤其是高中及更高阶数学内容）的收集、标签化管理、OCR 识别以及 AI 辅助生成解析。
+本项目是一个本地运行的半自动化考研数学题库管理工作台。核心目标是通过极简的本地化部署，实现高质量图文混排考研数学题目的收集、标签化管理、OCR 识别以及 AI 辅助生成解析。
 
 ## 2. 核心技术栈
 本项目追求极简配置与极致体验，严格遵循以下技术选型，**不要引入复杂的现代前端构建工具（如 Webpack/Vite/Node.js 生态）**：
 - **后端**：Python + FastAPI。
-- **后端渐进式模块架构**：根目录 `main.py` 继续作为 `uvicorn main:app` 兼容入口；后端领域能力统一集中在 `mathbank/`。`database.py` 提供 SQLite ORM 与 Session，`db_migrations.py` 提供版本化、备份优先的数据库迁移，`backup.py` 提供带清单校验的完整备份与恢复，`asset_security.py` 统一校验上传内容与本地资产路径，`task_manager.py` 提供有界异步任务、协作取消与临时资源生命周期，`health.py` 提供启动就绪诊断，`paper_helper.py` 提供 LaTeX/PDF 编译排版，`sync_helper.py` 只负责 JSON 同步导出与 AI 题库导出，`paths.py` 统一锚定持久化与捆绑路径。`curriculums.py` 加载四套教材 JSON，`prompts.py` 提供纯提示构建器，`ai_providers.py`、`ai_http.py`、`ai_json.py` 分别统一模型供应商解析、AI HTTP 请求与结构化输出解析。运维、迁移、检索与 Release 工具统一位于 `scripts/`，从项目根目录使用 `python3 -m scripts.<模块名>` 运行。严禁重新在根目录新增业务模块或复制供应商判断规则。
+- **后端渐进式模块架构**：根目录 `main.py` 继续作为 `uvicorn main:app` 入口；后端领域能力统一集中在 `mathbank/`。`database.py` 提供 SQLite ORM 与 Session，`db_migrations.py` 提供版本化、备份优先的数据库迁移，`backup.py` 提供带清单校验的完整备份与恢复，`asset_security.py` 统一校验上传内容与本地资产路径，`task_manager.py` 提供有界异步任务、协作取消与临时资源生命周期，`health.py` 提供启动就绪诊断，`paper_helper.py` 提供 LaTeX/PDF 编译排版，`sync_helper.py` 只负责 JSON 同步导出与 AI 题库导出，`paths.py` 统一锚定持久化与捆绑路径。`curriculums.py` 只加载考研数学 K 大纲，`prompts.py` 提供纯提示构建器，`ai_providers.py`、`ai_http.py`、`ai_json.py` 分别统一模型供应商解析、AI HTTP 请求与结构化输出解析。运维、迁移、检索与 Release 工具统一位于 `scripts/`，从项目根目录使用 `python3 -m scripts.<模块名>` 运行。严禁重新在根目录新增业务模块或复制供应商判断规则。
 - **数据库**：SQLite + SQLAlchemy（轻量级，数据存储在本地 `.db` 文件中）。
 - **前端页面**：纯 HTML + 原生 JavaScript。
 - **前端脚本拆分**：前端 JS 采用无编译的“渐进式级联加载”架构，按 `api.js`、`editor.js`、`ocr.js`、`import.js`、`paper.js` 的顺序级联加载；前四个模块负责 API/全局状态、编辑与渲染、OCR 图像交互、导入拆卷，`paper.js` 负责组卷工作台。加载顺序严格依存，不允许产生任何编译及捆绑动作。
@@ -38,12 +38,24 @@
 ## 3. 核心业务逻辑与模块设计
 ### 3.1 题目收集与存储
 - **题干录入**：支持多行纯文本与 LaTeX 代码混合输入，界面配备实时 KaTeX 渲染预览区。
+- **结构化来源库（schema v4）**：
+  - 来源是**独立于题目**的实体：`sources` 表每条记录代表一册教辅的分篇或一张真题卷（如 `880基础篇`、`1991数一`），字段为 `name`（唯一）、`series`（系列，如「李林880」，用于聚合）、`note`。
+  - 题目通过 `source_id + source_number + source_scope` 结构化引用来源；`source_number` 保存**书内原始题号**（章内×题型内从 1 计数），`source_scope` 保存编号作用域（如「第二章·选择」）；旧的 `questions.source` 自由文本列已在 v4 迁移中移除（存量字符串自动转为来源记录回填）。
+  - 显示标签由后端统一渲染：`source_label = 名称[·作用域](题号)`，如 `880基础篇·第二章·选择(10)`、`1991数一(8)`。
+  - API：`GET /api/sources` 返回带引用计数的列表；`POST/PUT/DELETE /api/sources` 需 `X-Local-Token`，重名 409，被题目引用的来源删除时 409。`GET /api/questions` 支持 `source_id` 与 `series` 筛选，文本搜索同时命中来源名/系列。
+  - `POST/PUT /api/questions` 接受 `source_id`（须存在）或 `source_name`（按名称幂等查找/创建，供拆卷导入等程序化路径）加 `source_number`、`source_scope`；序列化输出 `source_id/source_number/source_scope/source_label`。
+  - 前端：编辑器来源为「来源下拉 + 题号 + 作用域」三件套（`api.js` 的 `SourceForm` 统一读写，含缓存未就绪的 pendingId 回填与旧草稿名称精确匹配回退）；侧栏「来源」下拉按 `source_id` 筛选（草稿按来源名称包含匹配）；设置弹窗新增「来源库」Tab 管理增删改查；拆卷卡片来源文本走 `source_name`。
+- **教辅批量导入 CLI（`scripts/import_paper_book.py`）**：通用分阶段工具，`python3 -m scripts.import_paper_book ocr|build|import|report --profile <json>`（profile 见 `scripts/profiles/`）。
+  - `ocr`：PyMuPDF 150DPI 渲染 → PaddleOCR-VL-1.6（并发 4、失败重试 2）→ 逐页 Markdown 缓存于 `.system_generated/book_import/ocr/<key>/`，已缓存页跳过支持断点续跑；`--stop-marker` 在合订解析分册中截取单科范围（目录点线行防误判）。
+  - `build`：按（章，难度块，题型，题号）状态机拆题并与解析分册四元组匹配；题号粘连（如「。(4)D.」）按句末标点预切分，行首前向跳跃自愈开新题并打标，编号回退视为子小问保留；选择题转 `choices` 环境、题干尾空括号清洗、`\fillin` 规范化、水印/页眉页脚过滤；产出 `questions.json` 与块级题量对账报告。
+  - `import`：默认 dry-run，`--apply` 实际写库；来源按名称幂等创建；按（source_id, source_scope, source_number）幂等去重；逐题一事务写主表 + K 版分类镜像；完成后刷新 JSON 同步导出。
+  - `report`：对账报告 + 含插图页面清单（供 PDF 手动截图补图）+ 随机抽查样本。
 - **插图管理**：提供图片上传与 TikZ 绘图代码输入。图片保存在本地文件系统（`static/uploads/`），数据库存储相对路径。
 - **插图排版位置联动与多图复合渲染**：
   - **多模式与多插图支持**：插图在后端存储 `figure_align` 属性（支持 `right` 题干右侧、`center` 下方居中、`bottom_right` 下方居右）。
   - **全量插图抓取与预览同步**：前端与后端统一使用全量正则匹配捕获插图，多图横向弹性排列组合输出。
   - **交互弹窗切换**：在 A4 试卷预览框中点击或右击插图可弹出气泡菜单切换排版位置，并通过 `POST /api/questions/{qid}/figure_align` 持久化。
-  - **解答题留白调控**：解答题支持留白高度调控。若插图设为 `bottom_right` 或 `center`，插图包含在留白空间顶侧，避免垂直叠加过长。切换为 `exam_19`（高考卷）时自动恢复紧凑布局。
+  - **解答题留白调控**：解答题支持留白高度调控。若插图设为 `bottom_right` 或 `center`，插图包含在留白空间顶侧，避免垂直叠加过长。切换为 `kaoyan` 整卷模式时使用考研数学版式。
 - **选择题与填空题环境规范**：
   - 选择题选项统一格式化为 LaTeX `choices` 环境（`\begin{choices}` 和 `\item`），剥离原本的 A., B., C., D. 标号前缀。
   - **选择题 choices 网格对齐**：前端使用 `choices-grid` 容器与首行基线对齐，确保题干右侧括号 `（   ）` 靠右，选项独占下方 A4 栅格，且标号与首行文本基线精准对齐。
@@ -53,10 +65,10 @@
   - **HTML 解析器小于号转义**：前端预处理 KaTeX 公式时将数学环境内的 `<` 与 `>` 安全替换为 `\lt ` 与 `\gt `（禁用后行断言），防止浏览器 `innerHTML` 解析时切割 DOM 树。
   - **LaTeX tabular 表格网格渲染**：`\begin{tabular}` 自动解析转换为现代居中、带微边框的响应式 HTML5 表格，保留 LaTeX 原生源码导出。
   - **LaTeX 段落与换行规范**：双回车（`\n\n+`）代表起新段落（`<br><br>`）；显式双反斜杠（`\\\\`）代表硬换行（`<br>`）；单回车仅视为空格不打断自然段。解答题小问标号（如 `(1)`、`①`）自动前置插入段落换行。
-- **教材大纲多版本预设与共存**：
-  - 快捷切换人教 A 版、人教 B 版、苏教版、沪教版标准大纲预设（`mathbank/resources/curriculums/`）。
-  - **活跃-镜像模式 (`question_curriculums`)**：存放题目在每套大纲中的分类镜像。主表字段反映当前活跃配置，切换大纲时后台自动运行增量迁移。
-  - **小节隔离自愈**：校验并清洗非法跨版小节，防止分类下拉菜单发生混排污染。
+- **考研数学 K 大纲分类**：
+  - 系统只加载 `mathbank/resources/curriculums/K.json`，分类树固定为考试方向 → 科目 → 考点。
+  - `question_curriculums` 只保存 K 版本的题目分类镜像，主表字段与镜像字段使用同一套考研数学分类。
+  - 校验并清洗非法跨科目考点，防止分类下拉菜单发生混排污染。
 - **全局试题序号同步 (#seq_num)**：
   - 题库卡片与 Toast 交互统一采用 SQLite 物理升序计算的纯净序号 `seq_num`（1 ~ N）展示。
   - **编辑会话状态 (`EditorState`)**：`api.js` 的 `EditorState` 是当前题目 ID、序号、草稿 ID 与编辑模式的唯一状态来源，禁止引入平行全局变量。
@@ -72,10 +84,10 @@
 - **双阶段多模态识图**：单题 OCR 识别到插图时注入 `[ILLUSTRATION_BOX: ...]` 标记，后端自动擦除标记并调用高级绘图模型（`PREFER_DRAW_MODEL`）重绘 TikZ 矢量代码并编译为 PNG 静态图片追加引用。
 
 ### 3.3 JSON 同步导出、完整备份与 AI 只读题库
-- **JSON 同步导出 (`data_backup/questions_backup.json`)**：后台异步导出题目字段，便于检索与兼容旧流程；它不含数据库约束和完整上传目录，**不是灾难恢复用完整备份**。
+- **JSON 同步导出 (`data_backup/questions_backup.json`)**：后台异步导出题目字段，便于检索；它不含数据库约束和完整上传目录，**不是灾难恢复用完整备份**。
 - **可验证完整备份 (`data_backup/snapshots/mathbank-backup-*.zip`)**：通过 SQLite 在线快照保存数据库、数据库引用的 `static/uploads/` 文件及自定义元数据，并在 `manifest.json` 记录逐文件 SHA-256、大小、表计数与结构版本；明确排除 `.env`、本地 Token 和 API 密钥。创建并复验使用 `python3 -m scripts.backup`，仅验证使用 `python3 -m scripts.restore <备份.zip>`。
 - **恢复安全边界**：实际恢复必须完全关闭服务并显式运行 `python3 -m scripts.restore <备份.zip> --apply --yes`。服务在首次访问数据库前持有跨平台运行锁，恢复 API/CLI 必须持有同一把锁；锁被占用时必须停止，不得用 PID 信号探测替代。恢复前先创建已验证安全备份；若当前数据库已损坏或缺失而无法生成标准快照，则保留原数据库、WAL/SHM、上传和元数据的原始灾难恢复包，再原子替换并在失败时回滚。默认不带 `--apply` 只检查，不能修改现有数据。
-- **AI 专属只读题库 (`data_backup/questions_library.md`)**：只输出学段、章节、知识点和题干，过滤答案与点评，清洗 `\item`、`\\` 等排版命令，完全保留 `$` 公式。
+- **AI 专属只读题库 (`data_backup/questions_library.md`)**：只输出考试方向、科目、考点和题干，过滤答案与点评，清洗 `\item`、`\\` 等排版命令，完全保留 `$` 公式。
 - **终端检索工具 (`scripts/search_questions.py`)**：提供 CLI 工具支持模糊匹配与结构化题目拉取（运行 `python3 -m scripts.search_questions -q <关键词>`）。
 - **填空题下划线迁移工具 (`scripts/migrate_fillin.py`)**：批量规范化旧下划线格式为 `\fillin` 并刷新备份。
 
@@ -124,9 +136,9 @@
 - **拖拽与管理**：支持 HTML5 原拖拽试题卡片排序，具备侧边栏折叠及已保存试卷的数据库存档与载入管理。
 - **按题查看答案**：题库卡片默认隐藏答案，通过 `has_answer` 轻量标志区分空答案；首次展开时调用 `GET /api/questions/{id}` 按需获取完整 `answer_markdown`，在当前会话内缓存并经 `MathBankSafe` + KaTeX 安全渲染。展开状态不进入 LocalStorage，也不得影响右侧试卷正文、PDF 或导出结果。
 
-### 3.11 高考级 LaTeX/PDF 编译引擎
+### 3.11 考研数学 LaTeX/PDF 编译引擎
 - **试卷模板与排版**：
-  - 提供 `exam`（常规）、`quiz`（小练）、`exam_19`（高考 19 题跳跃）三套模板。插图自动映射 `wrapfigure` (右侧)、`figure` (居中)、`adjustbox` (右下)。
+  - 提供 `kaoyan`（考研数学整卷）与 `quiz`（小练）两套模板。插图自动映射 `wrapfigure` (右侧)、`figure` (居中)、`adjustbox` (右下)。
   - 题干、参考答案与答题卡只要生成含 `max width` 的 `\includegraphics`，导言区必须使用 `\usepackage[export]{adjustbox}`，保证自适应图片参数可由 `graphicx` 识别。
   - 导言区注入 `\raggedbottom` 防止大题标题下方拉伸。
 - **模板内置与编译缓存**：
@@ -150,13 +162,14 @@
 
 ## 4. 外部 API 接入规范
 - **密钥与鉴权**：读取 `.env` 密钥，修改类接口必须携带 `X-Local-Token` 头部。
+- **PaddleOCR 官方 API**：OCR provider 支持 `PP-OCRv5`、`PP-OCRv6` 与 `PaddleOCR-VL-1.6`。三者均使用 `PADDLEOCR_ACCESS_TOKEN` 和官方异步任务接口；PP-OCR 返回 `ocrResults`，VL-1.6 返回 `layoutParsingResults[].markdown.text`，后端必须按模型解析对应结果结构，不得只切换模型名。
 - **模型配置**：
-  - OCR 首选阿里百炼 `qwen3.7-flash` 或硅基流动 `Qwen/Qwen3-VL-8B-Instruct`（中转站推荐 `gpt-5.6-luna`）。
+- OCR 首选阿里百炼 `qwen3.7-flash` 或硅基流动 `Qwen/Qwen3-VL-8B-Instruct`（中转站推荐 `gpt-5.6-luna`）；也支持 PaddleOCR 官方托管 API。PaddleOCR 使用 `PADDLEOCR_ACCESS_TOKEN`、可选 `PADDLEOCR_BASE_URL` 与 `PADDLEOCR_MODEL`，通过“提交本地文件、轮询任务、读取 JSONL 结果”完成通用文字识别，不依赖本地 PaddlePaddle 推理环境。
   - 阿里百炼预设按任务隔离：OCR、拆卷与分类默认 `qwen3.7-flash`，解答与绘图默认 `qwen3.7-plus`，`qwen3.8-max` 仅作为高性能可选项；旧型号不再列为预设，但既有配置与自定义模型必须继续可见且不得被静默改写。
   - **阿里百炼思考策略隔离**：仅对 `provider_code == "bailian"` 的 Qwen3.7/3.8 生效。OCR、拆卷、分类、AI 选题和 LaTeX 诊断显式关闭思考；解答服从前端开关；TikZ 绘图显式开启思考。Qwen3.7 使用 `thinking_budget`，Qwen3.8 Max 使用 `reasoning_effort=medium`，两者禁止同时发送；当前型号使用 `max_completion_tokens`，不得改变 DeepSeek、硅基流动和中转站载荷。
   - 解答 (`PREFER_SOLVE_MODEL`)、拆卷 (`PREFER_PARSE_MODEL`)、分类 (`PREFER_CLASSIFY_MODEL`) 与绘图 (`PREFER_DRAW_MODEL`) 可单独配置。
-- **融合题自动分类优先级**：单题自动定位与拆卷分类共用 `mathbank.prompts.CLASSIFICATION_PRIORITY_RULE`。若一道题实际融合多个教材模块，按当前大纲从上到下的顺序选择最靠后的模块：先比较学段顺序，同一学段再比较章节顺序；仅作背景且解题无需使用的内容不参与候选。
-- **单题教材分类与题型确认边界**：`POST /api/ai/classify` 返回推荐学段、章节及粗粒度 `question_form`。后端硬规则优先：题干出现 `\begin{choices}` 判为 `choice`，出现 `\fillin` 判为 `fill_in_blank`；其余才采用 AI 的 `choice` / `fill_in_blank` / `detailed_answer` / `unknown` 建议。AI 严禁区分单选与多选；前端收到 `choice` 时必须由用户手动确认 `single_choice` 或 `multi_choice` 后才能保存，`unknown` 保留当前题型，禁止用缺失或未知值默认覆盖为解答题。
+- **融合题自动分类优先级**：单题自动定位与拆卷分类共用 `mathbank.prompts.CLASSIFICATION_PRIORITY_RULE`。若一道题实际融合多个考研数学科目与考点，按 K 大纲从上到下的顺序选择最靠后的模块：先比较考试方向顺序，同一方向再比较科目顺序，最后比较考点顺序；仅作背景且解题无需使用的内容不参与候选。
+- **单题分类与题型确认边界**：`POST /api/ai/classify` 返回推荐考试方向、科目、考点及粗粒度 `question_form`。后端硬规则优先：题干出现 `\begin{choices}` 判为 `single_choice`，出现 `\fillin` 判为 `fill_in_blank`；其余才采用 AI 的 `single_choice` / `fill_in_blank` / `detailed_answer` / `unknown` 建议。`unknown` 保留当前题型，禁止用缺失或未知值默认覆盖为解答题。
 
 ## 5. 启动诊断与双平台 Release 构建
 - **启动诊断**：服务启动打印 Python 环境、PDF Inspector、PyMuPDF、XeLaTeX、Pandoc 及数据库状态。
@@ -169,7 +182,7 @@
 - **暗色模式规范**：高通透玻璃底 + 10% 品牌色透光微光与高对比文字；下拉菜单统一使用 `.glass-dropdown`；深色编辑器采用高对比选中样式（`selection:bg-indigo-600`）。
 - **全局悬浮提示 (Global Fast Tooltip)**：`api.js` 事件代理接管带 `title` 或 `data-tooltip` 的元素，移入停顿 500ms 显示提示气泡，移出 0ms 隐藏，自动进行边缘碰撞检测并防重叠。
 - **交互与留白**：按钮与 Tab 具备平滑过渡动画（`duration-300`），参考 Notion 注重留白与呼吸感。
-- **题型确认状态反馈**：单选/多选人工确认按钮以 `aria-checked` 为唯一选中状态；选中后必须同时显示高对比实色背景、白色文字和勾选图标，选中态在 hover/active 下不得被通用按钮样式覆盖或弱化，不能仅依赖颜色传达状态。
+- **题型确认状态反馈**：题型选择以原生选择控件的值为唯一状态来源；选中后必须显示高对比状态，不能仅依赖颜色传达状态。
 - **不可信内容渲染**：题干、答案、来源、标签、AI/OCR/导入结果及图片属性都视为不可信输入；写入 `innerHTML` 前必须统一经 `MathBankSafe` 与 DOMPurify 白名单净化。可展示图片仅允许同源 `static/uploads/` 下的被动光栅格式，修改请求的 `X-Local-Token` 只能附加到同源 `/api/` 请求。
 - **可访问性与移动端**：375px 宽度下编辑器、侧栏和弹窗必须可操作；主要触控目标至少 44px。统一弹窗应支持焦点陷阱、`Esc` 关闭、背景不可聚焦和关闭后焦点恢复；打开时默认将程序化焦点放在 `aria-labelledby` 标题或弹窗语境容器上，不得自动选中关闭按钮或第一个操作控件，只有显式 `autofocus` / `initialFocus` 才聚焦具体控件。加载按钮同步 `disabled` / `aria-busy`，并尊重 `prefers-reduced-motion`。
 
