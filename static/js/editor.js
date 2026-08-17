@@ -1269,7 +1269,7 @@ let bankQuestionsRetryTimer = null;
                             </div>
                             <div class="flex justify-between items-center text-[9px] text-slate-400 border-t pt-1.5">
                                 <span class="truncate max-w-[120px] font-semibold"><i class="fa-solid fa-folder-open mr-0.5"></i>${window.MathBankSafe.escapeText(item.topic || item.subject || '未分类')}</span>
-                                <span class="font-mono text-slate-400">${window.MathBankSafe.escapeText(item.source_label ? item.source_label.substring(0, 14) : '本地录入')}</span>
+                                <span class="font-mono text-slate-400 truncate max-w-[150px]" title="${window.MathBankSafe.escapeText(item.source_label || '')}">${window.MathBankSafe.escapeText(item.source_label || '本地录入')}</span>
                             </div>
                         `;
 

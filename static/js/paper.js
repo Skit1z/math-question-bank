@@ -833,6 +833,7 @@
                             ${diffTag}
                             ${q.exam_track ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">${escapeHtml(q.exam_track)}</span>` : ''}
                             ${q.subject ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400">${escapeHtml(q.subject)}</span>` : ''}
+                            ${q.source_label ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/60 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-900/50" title="来源：${escapeHtml(q.source_label)}"><i class="fa-solid fa-book-bookmark mr-1 text-[9px]"></i>${escapeHtml(q.source_label)}</span>` : ''}
                             <span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" title="引用次数">引用 ${escapeHtml(usageCount)} 次</span>
                         </div>
 
