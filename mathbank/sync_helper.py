@@ -5,7 +5,7 @@ import datetime
 import threading
 import tempfile
 from sqlalchemy.orm import Session
-from mathbank.database import Question, SessionLocal
+from mathbank.database import Question, SessionLocal, format_source_label
 from mathbank.paths import DATA_BACKUP_DIR
 
 BACKUP_DIR = str(DATA_BACKUP_DIR)
@@ -141,13 +141,13 @@ def generate_markdown_library(questions, filepath: str):
     """生成高度结构化、题干纯净无干扰、支持 LaTeX 的只读 Markdown 文件，供 AI (如 Claude Code) 检索和备课参考"""
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # 按照 学段 (Compulsory) -> 章节 (Chapter) -> 知识点 (Knowledge) 对题目进行归类
+    # 按照考试方向 -> 科目 -> 考点对题目进行归类
     structure = {}
     
     for q in questions:
-        comp = q.category_compulsory or "未分类学段"
-        chap = q.category_chapter or "未分章节"
-        know = q.category_knowledge or "未分知识点"
+        comp = q.exam_track or "未定考试方向"
+        chap = q.subject or "未定科目"
+        know = q.topic or "未定考点"
         
         if comp not in structure:
             structure[comp] = {}
@@ -173,24 +173,25 @@ def generate_markdown_library(questions, filepath: str):
     if custom_meta and isinstance(custom_meta, dict) and "question_types" in custom_meta and "difficulties" in custom_meta:
         type_display = {item["value"]: item["label"] for item in custom_meta["question_types"]}
         difficulty_display = {item["value"]: item["label"] for item in custom_meta["difficulties"]}
-        # 保底映射默认系统内置字段以防老旧数据不匹配
-        for val, lbl in [("easy", "🟢 容易"), ("medium", "🟡 中等"), ("hard", "🔴 较难")]:
+        for val, lbl in [
+            ("basic", "基础巩固"),
+            ("standard", "真题常规"),
+            ("comprehensive", "综合提升"),
+            ("advanced", "压轴拔高"),
+        ]:
             if val not in difficulty_display:
                 difficulty_display[val] = lbl
     else:
         type_display = {
             "single_choice": "单选题",
-            "multi_choice": "多选题",
             "fill_in_blank": "填空题",
             "detailed_answer": "解答题"
         }
         difficulty_display = {
-            "easy": "🟢 容易",
-            "medium": "🟡 中等",
-            "hard": "🔴 较难",
-            "easy_error": "🟠 易错题",
-            "challenge": "🔥 压轴挑战题",
-            "qiangji": "🎓 强基/竞赛题"
+            "basic": "基础巩固",
+            "standard": "真题常规",
+            "comprehensive": "综合提升",
+            "advanced": "压轴拔高",
         }
 
     with open(filepath, "w", encoding="utf-8") as f:
@@ -237,7 +238,7 @@ def generate_markdown_library(questions, filepath: str):
                 for chap in sorted(structure[comp].keys()):
                     f.write(f"## 📁 {chap}\n\n")
                     for know in sorted(structure[comp][chap].keys()):
-                        f.write(f"### 📍 知识点：{know}\n\n")
+                        f.write(f"### 📍 考点：{know}\n\n")
                         
                         for q in structure[comp][chap][know]:
                             q_type_display = type_display.get(q.question_type, q.question_type)
@@ -247,8 +248,13 @@ def generate_markdown_library(questions, filepath: str):
                             f.write(f"#### 📌 题目 #{seq_num} (数据库 ID: {q.id})\n")
                             f.write(f"- **题型**：`{q_type_display}`\n")
                             f.write(f"- **难度级别**：{q_diff_display}\n")
-                            if q.source:
-                                f.write(f"- **题目来源**：`{q.source}`\n")
+                            source_label = format_source_label(
+                                q.source.name if q.source is not None else "",
+                                q.source_scope,
+                                q.source_number,
+                            )
+                            if source_label:
+                                f.write(f"- **题目来源**：`{source_label}`\n")
                             if q.association_group_id:
                                 f.write(f"- **关联题目组 ID**：`{q.association_group_id}`\n")
                             if q.tags:

@@ -1,15 +1,20 @@
-from mathbank.database import Paper, Question
+from mathbank.database import Paper, Question, Source, format_source_label
 
 def test_question_crud_operations(db_session):
-    # 1. Create Question
+    # 1. Create Question（来源为独立实体，先建来源再引用）
+    source = Source(name="2024考研数学真题", series="考研数学真题")
+    db_session.add(source)
+    db_session.flush()
     q = Question(
         content="设集合 $A = \\{1, 2\\}$, $B = \\{2, 3\\}$，则 $A \\cup B = $",
         question_type="single_choice",
-        category_compulsory="必修一",
-        category_chapter="第一章 集合与常用逻辑用语",
-        category_knowledge="集合的并集",
+        exam_track="数学一",
+        subject="第一章 集合与常用逻辑用语",
+        topic="集合的并集",
         difficulty="easy",
-        source="2024高考真题",
+        source_id=source.id,
+        source_number=8,
+        source_scope="",
         answer_markdown="$\\{1, 2, 3\\}$",
         review="这是一道基础的集合并集题目",
         association_group_id="group_123"
@@ -23,7 +28,7 @@ def test_question_crud_operations(db_session):
     
     assert q.id is not None
     assert q.question_type == "single_choice"
-    assert q.category_compulsory == "必修一"
+    assert q.exam_track == "数学一"
     assert q.image_paths == ["/static/uploads/test_img.png"]
     
     # Test dictionary formats
@@ -44,14 +49,15 @@ def test_question_crud_operations(db_session):
     # 2. Read / Query Question
     retrieved = db_session.query(Question).filter_by(id=q.id).first()
     assert retrieved is not None
-    assert retrieved.source == "2024高考真题"
+    assert retrieved.source.name == "2024考研数学真题"
+    assert format_source_label(retrieved.source.name, retrieved.source_scope, retrieved.source_number) == "2024考研数学真题(8)"
     
     # 3. Update Question
-    retrieved.difficulty = "medium"
+    retrieved.difficulty = "standard"
     db_session.commit()
     
     updated = db_session.query(Question).filter_by(id=q.id).first()
-    assert updated.difficulty == "medium"
+    assert updated.difficulty == "standard"
     
     # 4. Delete Question
     db_session.delete(updated)

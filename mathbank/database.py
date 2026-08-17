@@ -15,7 +15,7 @@ from sqlalchemy import (
     event,
 )
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from mathbank.paths import DATABASE_FILE, sqlite_url
 
 # SQLite Database URL
@@ -71,17 +71,55 @@ def configure_sqlite_wal(database_engine: Engine) -> str | None:
         pass
     return mode
 
+def format_source_label(name: str, scope: str | None, number: int | None) -> str:
+    """渲染结构化来源的显示标签，如 ``880基础篇·第二章·选择(10)``、``1991数一(8)``。"""
+
+    label = (name or "").strip()
+    scope_text = (scope or "").strip()
+    if scope_text:
+        label = f"{label}·{scope_text}" if label else scope_text
+    if number is not None:
+        label = f"{label}({number})" if label else str(number)
+    return label
+
+
+class Source(Base):
+    """题目来源库：每册教辅分篇或每张真题卷一条记录，独立于题目生命周期。"""
+
+    __tablename__ = "sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True, index=True)  # 显示名：880基础篇 / 1991数一
+    series = Column(String(100), default="")  # 系列：李林880 / 考研数学真题（用于聚合）
+    note = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow_naive)
+
+    def to_dict(self, usage_count: int | None = None):
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "series": self.series or "",
+            "note": self.note or "",
+            "created_at": (self.created_at.isoformat() + "Z") if self.created_at else None,
+        }
+        if usage_count is not None:
+            data["usage_count"] = usage_count
+        return data
+
+
 class Question(Base):
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text, nullable=False)  # 题干 (LaTeX + markdown)
-    question_type = Column(String(50), default="single_choice", index=True)  # single_choice, multi_choice, fill_in_blank, detailed_answer
-    category_compulsory = Column(String(100), default="", index=True)  # 必修/选修/选择性必修
-    category_chapter = Column(String(100), default="", index=True)  # 章节
-    category_knowledge = Column(String(100), default="", index=True)  # 知识点
-    difficulty = Column(String(50), default="medium", index=True)  # easy, medium, hard
-    source = Column(String(200), default="")  # 来源
+    question_type = Column(String(50), default="single_choice", index=True)  # single_choice, fill_in_blank, detailed_answer
+    exam_track = Column(String(100), default="数学一", index=True)  # 数学一/数学二/数学三
+    subject = Column(String(100), default="", index=True)  # 高等数学/线性代数/概率论与数理统计
+    topic = Column(String(100), default="", index=True)  # 具体考点
+    difficulty = Column(String(50), default="standard", index=True)  # basic, standard, comprehensive, advanced
+    source_id = Column(Integer, ForeignKey("sources.id"), nullable=True, index=True)  # 结构化来源引用
+    source_number = Column(Integer, nullable=True)  # 书内原始题号/卷内题号
+    source_scope = Column(String(100), default="")  # 编号作用域，如「第二章·选择」
     answer_markdown = Column(Text, default="")  # 答案与解析 (LaTeX + markdown)
     review = Column(Text, default="")  # 评述 (允许空白)
     association_group_id = Column(String(100), default="", index=True)  # 关联题目分组ID (支持传递关系)
@@ -91,6 +129,8 @@ class Question(Base):
     tags = Column(Text, default="")  # 自定义标签 (逗号分隔或字符串)
     usage_count = Column(Integer, default=0, index=True)  # 组卷引用次数
     created_at = Column(DateTime, default=_utcnow_naive)
+
+    source = relationship("Source", foreign_keys=[source_id])
 
     @property
     def image_paths(self):
@@ -112,11 +152,18 @@ class Question(Base):
             "id": self.id,
             "content": self.content,
             "question_type": self.question_type,
-            "category_compulsory": self.category_compulsory,
-            "category_chapter": self.category_chapter,
-            "category_knowledge": self.category_knowledge,
+            "exam_track": self.exam_track,
+            "subject": self.subject,
+            "topic": self.topic,
             "difficulty": self.difficulty,
-            "source": self.source,
+            "source_id": self.source_id,
+            "source_number": self.source_number,
+            "source_scope": self.source_scope or "",
+            "source_label": format_source_label(
+                self.source.name if self.source is not None else "",
+                self.source_scope,
+                self.source_number,
+            ),
             "answer_markdown": self.answer_markdown,
             "has_answer": bool((self.answer_markdown or "").strip()),
             "review": self.review,
@@ -134,11 +181,18 @@ class Question(Base):
             "id": self.id,
             "content": self.content,
             "question_type": self.question_type,
-            "category_compulsory": self.category_compulsory,
-            "category_chapter": self.category_chapter,
-            "category_knowledge": self.category_knowledge,
+            "exam_track": self.exam_track,
+            "subject": self.subject,
+            "topic": self.topic,
             "difficulty": self.difficulty,
-            "source": self.source,
+            "source_id": self.source_id,
+            "source_number": self.source_number,
+            "source_scope": self.source_scope or "",
+            "source_label": format_source_label(
+                self.source.name if self.source is not None else "",
+                self.source_scope,
+                self.source_number,
+            ),
             "has_answer": bool((self.answer_markdown or "").strip()),
             "association_group_id": self.association_group_id,
             "image_paths": self.image_paths,
@@ -167,19 +221,19 @@ class QuestionCurriculum(Base):
         index=True,
         nullable=False,
     )
-    version_code = Column(String(50), index=True, nullable=False)  # 'A', 'B', 'S'
-    compulsory = Column(String(100), default="", index=True)
-    chapter = Column(String(100), default="", index=True)
-    knowledge = Column(String(100), default="", index=True)
+    version_code = Column(String(50), index=True, nullable=False)  # 'K'
+    exam_track = Column(String(100), default="", index=True)
+    subject = Column(String(100), default="", index=True)
+    topic = Column(String(100), default="", index=True)
 
     def to_dict(self):
         return {
             "id": self.id,
             "question_id": self.question_id,
             "version_code": self.version_code,
-            "compulsory": self.compulsory,
-            "chapter": self.chapter,
-            "knowledge": self.knowledge
+            "exam_track": self.exam_track,
+            "subject": self.subject,
+            "topic": self.topic
         }
 
 class Paper(Base):
@@ -188,7 +242,7 @@ class Paper(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
     subtitle = Column(String(200), default="")
-    paper_type = Column(String(50), default="exam")  # exam, quiz, handout
+    paper_type = Column(String(50), default="kaoyan")  # kaoyan, quiz
     total_score = Column(Integer, default=150)
     metadata_json = Column(Text, default="{}")
     created_at = Column(DateTime, default=_utcnow_naive)
@@ -295,13 +349,13 @@ def init_db():
             # before create_all can disguise the missing core columns.
             required_columns = {
                 "questions": {
-                    "id", "content", "question_type", "category_compulsory",
-                    "category_chapter", "category_knowledge", "difficulty",
-                    "source", "answer_markdown", "image_paths", "created_at",
+                    "id", "content", "question_type", "exam_track",
+                    "subject", "topic", "difficulty",
+                    "answer_markdown", "image_paths", "created_at",
                 },
                 "question_curriculums": {
-                    "id", "question_id", "version_code", "compulsory",
-                    "chapter", "knowledge",
+                    "id", "question_id", "version_code", "exam_track",
+                    "subject", "topic",
                 },
                 "papers": {
                     "id", "title", "subtitle", "paper_type", "total_score",
@@ -311,6 +365,7 @@ def init_db():
                     "id", "paper_id", "question_id", "order_index", "score",
                 },
             }
+            table_columns: dict[str, set[str]] = {}
             for table_name in core_tables:
                 columns = {
                     row[1]
@@ -318,11 +373,22 @@ def init_db():
                         f'PRAGMA table_info("{table_name}")'
                     ).fetchall()
                 }
+                table_columns[table_name] = columns
                 missing_columns = required_columns[table_name] - columns
                 if missing_columns:
                     missing = ", ".join(sorted(missing_columns))
                     raise RuntimeError(
                         f"数据库表 {table_name} 缺少核心字段: {missing}"
+                    )
+            if "questions" in table_columns:
+                question_columns = table_columns["questions"]
+                has_legacy_source = "source" in question_columns
+                has_structured_source = {
+                    "source_id", "source_number", "source_scope"
+                } <= question_columns
+                if not has_legacy_source and not has_structured_source:
+                    raise RuntimeError(
+                        "数据库表 questions 缺少核心字段: source/source_id"
                     )
     pre_migration_backup = None
     if current_version < LATEST_SCHEMA_VERSION and existing_tables:
@@ -364,32 +430,45 @@ def init_db():
             if "usage_count" not in columns:
                 conn.execute(text("ALTER TABLE questions ADD COLUMN usage_count INTEGER DEFAULT 0"))
                 print("Added column 'usage_count' to questions table successfully.")
-                
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_category_compulsory ON questions (category_compulsory)"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_category_chapter ON questions (category_chapter)"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_category_knowledge ON questions (category_knowledge)"))
+
+            if "source_id" not in columns:
+                conn.execute(text("ALTER TABLE questions ADD COLUMN source_id INTEGER REFERENCES sources(id)"))
+                print("Added column 'source_id' to questions table successfully.")
+
+            if "source_number" not in columns:
+                conn.execute(text("ALTER TABLE questions ADD COLUMN source_number INTEGER"))
+                print("Added column 'source_number' to questions table successfully.")
+
+            if "source_scope" not in columns:
+                conn.execute(text("ALTER TABLE questions ADD COLUMN source_scope VARCHAR(100) DEFAULT ''"))
+                print("Added column 'source_scope' to questions table successfully.")
+
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_exam_track ON questions (exam_track)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions (subject)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions (topic)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_question_type ON questions (question_type)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions (difficulty)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_association_group_id ON questions (association_group_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_tags ON questions (tags)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_usage_count ON questions (usage_count)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_questions_source_id ON questions (source_id)"))
 
             # Create indexes on question_curriculums
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_question_curriculums_lookup ON question_curriculums (version_code, compulsory, chapter, knowledge)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_question_curriculums_lookup ON question_curriculums (version_code, exam_track, subject, topic)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_question_curriculums_qid ON question_curriculums (question_id)"))
 
-            # Auto-migrate legacy data to A-version question_curriculums
+            # Keep the active exam-track mirror in sync for a fresh database.
             cursor = conn.execute(text("SELECT COUNT(*) FROM question_curriculums"))
             count = cursor.fetchone()[0]
             if count == 0:
                 conn.execute(text("""
-                    INSERT INTO question_curriculums (question_id, version_code, compulsory, chapter, knowledge)
-                    SELECT id, 'A', category_compulsory, category_chapter, category_knowledge
+                    INSERT INTO question_curriculums (question_id, version_code, exam_track, subject, topic)
+                    SELECT id, 'K', exam_track, subject, topic
                     FROM questions
                 """))
-                print("Successfully auto-migrated legacy question categories to A-version question_curriculums mapping.")
+                print("Initialized K-version question classification mirrors.")
     except Exception as e:
-        raise RuntimeError("数据库旧字段或索引迁移失败，服务已停止启动") from e
+        raise RuntimeError("数据库结构与考研数学模型不匹配，服务已停止启动") from e
 
     migration_result = migrate_database(
         engine, pre_migration_backup=pre_migration_backup
