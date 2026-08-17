@@ -1,8 +1,8 @@
-# AI Database Query Guide: Local Math Question Bank
+# AI Database Query Guide: Local Graduate-Entrance Mathematics Question Bank
 
 > [!NOTE]
 > **To any AI Agent (Claude, Cursor, Cline, etc.) reading this guide:**
-> You are operating within a local workspace equipped with an SQLite-based High School Mathematics Question Bank (`math_question_bank.db`).
+> You are operating within a local workspace equipped with an SQLite-based graduate-entrance mathematics question bank (`math_question_bank.db`).
 > Instead of reading raw files or loading massive markdown lists that overflow your context window, you should **proactively execute the local CLI module `scripts.search_questions`** in the terminal to search, retrieve, and format questions with 100% precision.
 
 ---
@@ -14,27 +14,27 @@ From the project root, run `python3 -m scripts.search_questions` to fuzzy search
 ### Parameter Reference
 | Option | Long Option | Description | Example / Allowed Values |
 | :--- | :--- | :--- | :--- |
-| `-q` | `--query` | Fuzzy search keyword (matches grade, chapter, knowledge points, or content). | `-q "1.1"` or `-q "三角函数"` |
+| `-q` | `--query` | Fuzzy search keyword (matches exam track, subject, topic, or content). | `-q "矩阵"` or `-q "极限"` |
 | `-n` | `--limit` | Maximum number of questions to return. **Use `-1` for NO LIMIT.** | `-n 50` or `-n -1` (default: 50) |
 | `-a` | `--with-answers` | Flag to include answers, step-by-step explanations, and reviews. | (Omitting this hides answers) |
-| `-t` | `--type` | Filter by question type. | `single_choice`, `multi_choice`, `fill_in_blank`, `detailed_answer` |
-| `-d` | `--difficulty` | Filter by difficulty level. | `easy`, `medium`, `hard` |
+| `-t` | `--type` | Filter by question type. | `single_choice`, `fill_in_blank`, `detailed_answer` |
+| `-d` | `--difficulty` | Filter by difficulty level. | `basic`, `standard`, `comprehensive`, `advanced` |
 | `-r` | `--related-to` | Fetch all questions linked to a specific Question ID. | `-r 3` |
 
 ---
 
 ## 2. Dynamic Search Examples (Copy & Execute)
 
-### 📌 Case A: Generate Student Practice Sheet (No Answers)
-To find all questions in **Compulsory 1, Chapter 1, Section 1 (1.1 集合的概念)** without leaking answers:
+### 📌 Case A: Generate Graduate-Math Practice Sheet (No Answers)
+To find questions in **数学一 / 高等数学 / 一元函数微分学** without leaking answers:
 ```bash
-python3 -m scripts.search_questions -q "1.1" -n -1
+python3 -m scripts.search_questions -q "一元函数微分学" -n -1
 ```
 
-### 📌 Case B: Generate Lesson Plan / Teacher Guide (With Answers)
-To retrieve **3 difficult questions about Geometry** with detailed derivations and reviews:
+### 📌 Case B: Generate a Solution Note (With Answers)
+To retrieve **3 advanced linear-algebra questions** with detailed derivations and reviews:
 ```bash
-python3 -m scripts.search_questions -q "立体几何" -d "hard" -n 3 -a
+python3 -m scripts.search_questions -q "线性代数" -d "advanced" -n 3 -a
 ```
 
 ### 📌 Case C: Find Linked / Variation Questions
@@ -53,12 +53,12 @@ If you are a advanced Agent authorized to query the SQLite database (`math_quest
 CREATE TABLE questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT NOT NULL,                  -- Question stem (LaTeX + Markdown mixed)
-    question_type VARCHAR(50),              -- Type: single_choice, multi_choice, fill_in_blank, detailed_answer
-    category_compulsory VARCHAR(100),       -- Curriculum: "必修一", "必修二", "选择性必修一"
-    category_chapter VARCHAR(100),          -- Chapter: e.g. "1. 集合与常用逻辑用语"
-    category_knowledge VARCHAR(100),        -- Knowledge Point / Section: e.g. "1.1 集合的概念"
-    difficulty VARCHAR(50),                 -- Difficulty: easy, medium, hard
-    source VARCHAR(200),                    -- Source / Exam Origin: e.g. "2025 武汉二中高一月考"
+    question_type VARCHAR(50),              -- Type: single_choice, fill_in_blank, detailed_answer
+    exam_track VARCHAR(100),                -- Exam track: "数学一", "数学二", "数学三"
+    subject VARCHAR(100),                   -- Subject: "高等数学", "线性代数", "概率论与数理统计"
+    topic VARCHAR(100),                     -- Topic: e.g. "一元函数微分学"
+    difficulty VARCHAR(50),                 -- Difficulty: basic, standard, comprehensive, advanced
+    source VARCHAR(200),                    -- Source / exam origin, e.g. "考研数学真题"
     answer_markdown TEXT,                   -- Answers & Explanations (LaTeX + Markdown mixed)
     review TEXT,                            -- Teacher's review / comments (can be blank)
     association_group_id VARCHAR(100),      -- Bi-directional grouping token for associated variations
@@ -71,10 +71,10 @@ CREATE TABLE questions (
 
 ## 4. Prompt Recipes for Users to Instruct AI
 
-When you want your AI assistant to generate lesson plans, exam sheets, or slides, simply paste one of these prompts:
+When you want your AI assistant to generate rigorous solutions or graduate-math exam sheets, simply paste one of these prompts:
 
-### 💬 Lesson Plan Generation Prompt
-> "Please read `docs/AI_DATABASE_GUIDE.md` first. Then, run the command `python3 -m scripts.search_questions -q "三角函数" -n 3 -a` in the terminal. Use the returned 3 mathematics questions with answers as classroom examples to draft a highly professional high-school lesson plan."
+### 💬 Solution Note Generation Prompt
+> "Please read `docs/AI_DATABASE_GUIDE.md` first. Then, run `python3 -m scripts.search_questions -q \"矩阵\" -n 3 -a`. Use the returned questions and answers to draft a rigorous graduate-entrance mathematics solution note."
 
 ### 💬 Student Worksheet Generation Prompt
-> "Read `docs/AI_DATABASE_GUIDE.md`. Run `python3 -m scripts.search_questions -q "1.1" -n -1` to fetch all questions for section 1.1. Select 5 of them to assemble a clean quiz sheet for students (do not include answers)."
+> "Read `docs/AI_DATABASE_GUIDE.md`. Run `python3 -m scripts.search_questions -q "一元函数积分学" -n -1` to fetch relevant questions. Select 5 to assemble a clean graduate-math practice sheet (do not include answers)."

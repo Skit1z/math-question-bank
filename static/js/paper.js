@@ -16,17 +16,17 @@
     window.PaperStore = {
         cart: [], // Array of { id: number, score: number }
         meta: {
-            title: '2026年高中数学模拟考试试卷',
+            title: '2026年考研数学模拟试题',
             subtitle: '',
-            paper_type: 'exam_19',
+            paper_type: 'kaoyan',
             solution_space_default: '7.0',
             show_notice: true,
             show_secret: true
         },
         filters: {
-            compulsory: '',
-            chapter: '',
-            knowledge: '',
+            examTrack: '',
+            subject: '',
+            topic: '',
             question_type: '',
             difficulty: '',
             keyword: '',
@@ -341,17 +341,14 @@
     async function fetchBankQuestions() {
         const f = window.PaperStore.filters;
         const params = new URLSearchParams();
-        if (f.compulsory) {
-            params.append('compulsory', f.compulsory);
-            params.append('category_compulsory', f.compulsory);
+        if (f.examTrack) {
+            params.append('exam_track', f.examTrack);
         }
-        if (f.chapter) {
-            params.append('chapter', f.chapter);
-            params.append('category_chapter', f.chapter);
+        if (f.subject) {
+            params.append('subject', f.subject);
         }
-        if (f.knowledge) {
-            params.append('knowledge', f.knowledge);
-            params.append('category_knowledge', f.knowledge);
+        if (f.topic) {
+            params.append('topic', f.topic);
         }
         if (f.question_type) {
             params.append('qtype', f.question_type);
@@ -397,33 +394,33 @@
         const tree = window.categoryTree || {};
         const metadata = window.systemMetadata || {};
 
-        // 1. Build Compulsory Book options
-        let bookOptions = `<option value="">-- 选择学段 --</option>`;
+        // 1. Build exam-track options
+        let bookOptions = `<option value="">-- 选择考试方向 --</option>`;
         Object.keys(tree).forEach(b => {
-            bookOptions += `<option value="${escapeHtml(b)}" ${f.compulsory === b ? 'selected' : ''}>${escapeHtml(b)}</option>`;
+            bookOptions += `<option value="${escapeHtml(b)}" ${f.examTrack === b ? 'selected' : ''}>${escapeHtml(b)}</option>`;
         });
 
-        // 2. Build Chapter options (Level 2)
-        let chapterOptions = `<option value="">-- 先选学段 --</option>`;
-        let isChapterDisabled = true;
-        if (f.compulsory && tree[f.compulsory]) {
-            isChapterDisabled = false;
-            chapterOptions = `<option value="">-- 所有章节 --</option>`;
-            Object.keys(tree[f.compulsory]).forEach(ch => {
-                chapterOptions += `<option value="${escapeHtml(ch)}" ${f.chapter === ch ? 'selected' : ''}>${escapeHtml(ch)}</option>`;
+        // 2. Build subject options (Level 2)
+        let subjectOptions = `<option value="">-- 先选考试方向 --</option>`;
+        let isSubjectDisabled = true;
+        if (f.examTrack && tree[f.examTrack]) {
+            isSubjectDisabled = false;
+            subjectOptions = `<option value="">-- 所有科目 --</option>`;
+            Object.keys(tree[f.examTrack]).forEach(ch => {
+                subjectOptions += `<option value="${escapeHtml(ch)}" ${f.subject === ch ? 'selected' : ''}>${escapeHtml(ch)}</option>`;
             });
         }
 
-        // 3. Build Knowledge options (Level 3)
-        let knowledgeOptions = `<option value="">-- 先选章节 --</option>`;
-        let isKnowledgeDisabled = true;
-        if (f.compulsory && f.chapter && tree[f.compulsory] && tree[f.compulsory][f.chapter]) {
-            isKnowledgeDisabled = false;
-            knowledgeOptions = `<option value="">-- 所有小节/知识点 --</option>`;
-            const knowList = tree[f.compulsory][f.chapter];
+        // 3. Build topic options (Level 3)
+        let topicOptions = `<option value="">-- 先选科目 --</option>`;
+        let isTopicDisabled = true;
+        if (f.examTrack && f.subject && tree[f.examTrack] && tree[f.examTrack][f.subject]) {
+            isTopicDisabled = false;
+            topicOptions = `<option value="">-- 所有考点 --</option>`;
+            const knowList = tree[f.examTrack][f.subject];
             if (Array.isArray(knowList)) {
                 knowList.forEach(k => {
-                    knowledgeOptions += `<option value="${escapeHtml(k)}" ${f.knowledge === k ? 'selected' : ''}>${escapeHtml(k)}</option>`;
+                    topicOptions += `<option value="${escapeHtml(k)}" ${f.topic === k ? 'selected' : ''}>${escapeHtml(k)}</option>`;
                 });
             }
         }
@@ -432,7 +429,6 @@
         let qTypeOptions = `<option value="">全部题型</option>`;
         const qTypes = metadata.question_types || [
             { value: 'single_choice', label: '单选题' },
-            { value: 'multi_choice', label: '多选题' },
             { value: 'fill_in_blank', label: '填空题' },
             { value: 'detailed_answer', label: '解答题' }
         ];
@@ -443,10 +439,10 @@
         // 5. Build Difficulty options
         let diffOptions = `<option value="">全部难度</option>`;
         const difficulties = metadata.difficulties || [
-            { value: 'easy', label: '普通题' },
-            { value: 'easy_error', label: '易错题' },
-            { value: 'medium', label: '挑战题' },
-            { value: 'hard', label: '强基题' }
+            { value: 'basic', label: '基础巩固' },
+            { value: 'standard', label: '真题常规' },
+            { value: 'comprehensive', label: '综合提升' },
+            { value: 'advanced', label: '压轴拔高' }
         ];
         difficulties.forEach(d => {
             diffOptions += `<option value="${escapeHtml(d.value)}" ${f.difficulty === d.value ? 'selected' : ''}>${escapeHtml(d.label)}</option>`;
@@ -460,7 +456,7 @@
                         <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">主标题</label>
                         <input type="text" id="paperMetaTitle" value="${escapeHtml(meta.title)}" 
                             oninput="updatePaperMeta('title', this.value)" onchange="updatePaperMeta('title', this.value)"
-                            class="glass-input w-full px-2 py-1 text-xs rounded-lg" placeholder="如：2026年高中数学期末考试">
+                            class="glass-input w-full px-2 py-1 text-xs rounded-lg" placeholder="如：2026年考研数学模拟试题">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">副标题 / 备注</label>
@@ -472,34 +468,33 @@
                         <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">试卷类型预设</label>
                         <select id="paperMetaType" onchange="updatePaperMeta('paper_type', this.value)"
                             class="glass-select w-full px-2 py-1 text-xs rounded-lg">
-                            <option value="exam_19" ${meta.paper_type === 'exam_19' ? 'selected' : ''}>19题高考卷 (含答题卡)</option>
-                            <option value="exam" ${meta.paper_type === 'exam' ? 'selected' : ''}>常规试卷</option>
+                            <option value="kaoyan" ${meta.paper_type === 'kaoyan' ? 'selected' : ''}>考研数学整卷 (含答题卡)</option>
                             <option value="quiz" ${meta.paper_type === 'quiz' ? 'selected' : ''}>日常小练</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Middle Row 1: 3-Level Cascade Curriculum Dropdowns (学段 -> 章节 -> 小节/知识点) -->
+                <!-- Middle Row 1: 3-Level Cascade Curriculum Dropdowns (考试方向 -> 科目 -> 考点/考点) -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">学段</label>
-                        <select id="paperFilterCompulsory" onchange="onPaperFilterChange('compulsory', this.value)"
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">考试方向</label>
+                        <select id="paperFilterExamTrack" onchange="onPaperFilterChange('examTrack', this.value)"
                             class="glass-select w-full px-2 py-1 text-xs rounded-lg">
                             ${bookOptions}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">章节</label>
-                        <select id="paperFilterChapter" onchange="onPaperFilterChange('chapter', this.value)" ${isChapterDisabled ? 'disabled' : ''}
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">科目</label>
+                        <select id="paperFilterSubject" onchange="onPaperFilterChange('subject', this.value)" ${isSubjectDisabled ? 'disabled' : ''}
                             class="glass-select w-full px-2 py-1 text-xs rounded-lg disabled:opacity-50">
-                            ${chapterOptions}
+                            ${subjectOptions}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">小节 / 知识点</label>
-                        <select id="paperFilterKnowledge" onchange="onPaperFilterChange('knowledge', this.value)" ${isKnowledgeDisabled ? 'disabled' : ''}
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">考点 / 考点</label>
+                        <select id="paperFilterTopic" onchange="onPaperFilterChange('topic', this.value)" ${isTopicDisabled ? 'disabled' : ''}
                             class="glass-select w-full px-2 py-1 text-xs rounded-lg disabled:opacity-50">
-                            ${knowledgeOptions}
+                            ${topicOptions}
                         </select>
                     </div>
                 </div>
@@ -553,12 +548,12 @@
         window.PaperStore.filters[key] = value;
         
         // Handle cascade resets
-        if (key === 'compulsory') {
-            window.PaperStore.filters.chapter = '';
-            window.PaperStore.filters.knowledge = '';
+        if (key === 'examTrack') {
+            window.PaperStore.filters.subject = '';
+            window.PaperStore.filters.topic = '';
             renderPart2FilterSection();
-        } else if (key === 'chapter') {
-            window.PaperStore.filters.knowledge = '';
+        } else if (key === 'subject') {
+            window.PaperStore.filters.topic = '';
             renderPart2FilterSection();
         }
 
@@ -617,7 +612,7 @@
     window.updatePaperMeta = function (key, value) {
         window.PaperStore.meta[key] = value;
         if (key === 'paper_type') {
-            const newDefault = value === 'exam_19' ? '0.0' : '7.0';
+            const newDefault = value === 'kaoyan' ? '0.0' : '7.0';
             window.PaperStore.meta.solution_space_default = newDefault;
             window.PaperStore.cart.forEach(item => {
                 item.solution_space = newDefault;
@@ -657,9 +652,9 @@
                 body: JSON.stringify({
                     prompt: promptText,
                     limit: 5,
-                    compulsory: f.compulsory,
-                    chapter: f.chapter,
-                    knowledge: f.knowledge,
+                    examTrack: f.examTrack,
+                    subject: f.subject,
+                    topic: f.topic,
                     question_type: f.question_type,
                     difficulty: f.difficulty
                 })
@@ -771,7 +766,7 @@
                         <i class="fa-solid fa-folder-open"></i>
                     </div>
                     <h4 class="font-semibold text-slate-700 dark:text-slate-200 mb-1">未找到符合条件的题目</h4>
-                    <p class="text-xs text-slate-500 max-w-xs text-center">请在上方调节学段、章节、题型、难度或搜索条件。</p>
+                    <p class="text-xs text-slate-500 max-w-xs text-center">请在上方调节考试方向、科目、题型、难度或搜索条件。</p>
                 </div>
             `;
             container.innerHTML = html;
@@ -836,8 +831,8 @@
                             <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">#${escapeHtml(q.seq_num !== undefined ? q.seq_num : q.id)}</span>
                             <span class="px-2 py-0.5 rounded-lg text-xs font-semibold bg-brand-50 text-brand-600 border border-brand-200/50 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-900/50">${escapeHtml(qTypeLabel)}</span>
                             ${diffTag}
-                            ${q.category_compulsory ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">${escapeHtml(q.category_compulsory)}</span>` : ''}
-                            ${q.category_chapter ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400">${escapeHtml(q.category_chapter)}</span>` : ''}
+                            ${q.exam_track ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">${escapeHtml(q.exam_track)}</span>` : ''}
+                            ${q.subject ? `<span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400">${escapeHtml(q.subject)}</span>` : ''}
                             <span class="px-2 py-0.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" title="引用次数">引用 ${escapeHtml(usageCount)} 次</span>
                         </div>
 
@@ -985,8 +980,8 @@
         validCartStats.forEach(item => {
             const q = window.PaperStore.questionsMap[item.id];
             if (q) {
-                if (q.difficulty === 'easy' || q.difficulty === 'normal') easyCount++;
-                else if (q.difficulty === 'hard' || q.difficulty === 'qiangji') hardCount++;
+                if (q.difficulty === 'basic') easyCount++;
+                else if (q.difficulty === 'advanced') hardCount++;
                 else medCount++;
             }
         });
@@ -1030,7 +1025,7 @@
                             <!-- Difficulty ratio bar -->
                             <div class="hidden xl:flex items-center space-x-1.5 text-xs">
                                 <span class="text-slate-400 font-medium">难度比:</span>
-                                <div class="w-20 h-2 rounded-full bg-slate-200 overflow-hidden flex dark:bg-slate-700" title="普通题: ${easyPct}% | 挑战题: ${medPct}% | 强基题: ${hardPct}%">
+                                <div class="w-20 h-2 rounded-full bg-slate-200 overflow-hidden flex dark:bg-slate-700" title="基础巩固: ${easyPct}% | 综合提升: ${medPct}% | 压轴拔高: ${hardPct}%">
                                     <div class="bg-emerald-500 h-full" style="width: ${easyPct}%"></div>
                                     <div class="bg-amber-500 h-full" style="width: ${medPct}%"></div>
                                     <div class="bg-rose-500 h-full" style="width: ${hardPct}%"></div>
@@ -1044,7 +1039,7 @@
                                 </span>
                                 <select onchange="window.updateGlobalSolutionSpace(this.value)"
                                     class="px-2 py-1 text-xs rounded-xl border border-brand-200/80 bg-brand-50/60 text-brand-900 font-bold focus:ring-2 focus:ring-brand-500 focus:outline-none dark:bg-brand-900/50 dark:border-brand-900 dark:text-brand-200">
-                                    ${meta.paper_type === 'exam_19' ? `
+                                    ${meta.paper_type === 'kaoyan' ? `
                                         <option value="0.0" ${(parseFloat(meta.solution_space_default !== undefined ? meta.solution_space_default : '0.0') === 0.0) ? 'selected' : ''}>0 cm (不留白)</option>
                                         <option value="3.0" ${(parseFloat(meta.solution_space_default !== undefined ? meta.solution_space_default : '0.0') === 3.0) ? 'selected' : ''}>3 cm (紧凑留白)</option>
                                     ` : `
@@ -1076,12 +1071,12 @@
 
                     <!-- Row 3: Preview & Export Options -->
                     <div class="flex flex-wrap items-center justify-between gap-2 sm:gap-2.5">
-                        ${meta.paper_type === 'exam_19' ? `
+                        ${meta.paper_type === 'kaoyan' ? `
                             <button onclick="exportPaperPdf('paper')" class="flex-1 px-2.5 py-1.5 justify-center rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/80 active:scale-95 transition-all flex items-center space-x-1.5 whitespace-nowrap dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700" title="编译并打开试卷 PDF 预览">
                                 <i class="fa-solid fa-file-pdf"></i>
                                 <span>试卷 PDF 预览</span>
                             </button>
-                            <button onclick="exportPaperPdf('sheet')" class="flex-1 px-2.5 py-1.5 justify-center rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/80 active:scale-95 transition-all flex items-center space-x-1.5 whitespace-nowrap dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700" title="编译并打开 A3 双面答题卡 PDF 预览">
+                            <button onclick="exportPaperPdf('sheet')" class="flex-1 px-2.5 py-1.5 justify-center rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200/80 active:scale-95 transition-all flex items-center space-x-1.5 whitespace-nowrap dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700" title="编译并打开考研数学答题卡 PDF 预览">
                                 <i class="fa-solid fa-file-lines"></i>
                                 <span>答题卡 PDF 预览</span>
                             </button>
@@ -1155,7 +1150,7 @@
     };
 
     function renderA4Header(meta, totalCount, totalScore, totalPages) {
-        const isExamType = (meta.paper_type === 'exam' || meta.paper_type === 'exam_19');
+        const isExamType = meta.paper_type === 'kaoyan';
         return `
             <!-- Top Secret Mark Bar -->
             ${isExamType ? `
@@ -1249,7 +1244,7 @@
 
         const cartItemsWithIndex = validCart.map((item, idx) => ({ ...item, cartIndex: idx }));
 
-        const typeOrder = ['single_choice', 'multi_choice', 'fill_in_blank', 'detailed_answer'];
+        const typeOrder = ['single_choice', 'fill_in_blank', 'detailed_answer'];
         const grouped = {};
 
         cartItemsWithIndex.forEach(item => {
@@ -1261,22 +1256,12 @@
         });
 
         const blocks = [];
-        const secNums = ['一', '二', '三', '四', '五'];
+        const secNums = ['一', '二', '三'];
         let secIdx = 0;
-        const isExam19 = (meta.paper_type === 'exam_19');
-        let globalQIndex = 1;
 
         typeOrder.forEach(qType => {
             const items = grouped[qType];
             if (!items || items.length === 0) return;
-
-            // For exam_19: set fixed starting question number according to Gaokao rules
-            if (isExam19) {
-                if (qType === 'single_choice') globalQIndex = 1;
-                else if (qType === 'multi_choice') globalQIndex = 9;
-                else if (qType === 'fill_in_blank') globalQIndex = 12;
-                else if (qType === 'detailed_answer') globalQIndex = 15;
-            }
 
             const secNum = secNums[secIdx] || (secIdx + 1);
             secIdx++;
@@ -1289,8 +1274,6 @@
             if (meta.paper_type === 'quiz') {
                 if (qType === 'single_choice') {
                     secHeaderText = `${secNum}、单选题`;
-                } else if (qType === 'multi_choice') {
-                    secHeaderText = `${secNum}、多选题`;
                 } else if (qType === 'fill_in_blank') {
                     secHeaderText = `${secNum}、填空题`;
                 } else {
@@ -1299,8 +1282,6 @@
             } else {
                 if (qType === 'single_choice') {
                     secHeaderText = `${secNum}、选择题：本题共 ${count} 小题，每小题 ${unitScore} 分，共 ${secScore} 分。在每小题给出的四个选项中，只有一项是符合题目要求的。`;
-                } else if (qType === 'multi_choice') {
-                    secHeaderText = `${secNum}、多选题：本题共 ${count} 小题，每小题 ${unitScore} 分，共 ${secScore} 分。在每小题给出的四个选项中，有多项符合题目要求。全部选对的得 ${unitScore} 分，部分选对的得部分分，有选错的得 0 分。`;
                 } else if (qType === 'fill_in_blank') {
                     secHeaderText = `${secNum}、填空题：本题共 ${count} 小题，每小题 ${unitScore} 分，共 ${secScore} 分。`;
                 } else {
@@ -1328,7 +1309,7 @@
                 let isSolSpaceEmbedded = false;
 
                 if (qType === 'detailed_answer') {
-                    const defaultFallback = meta.paper_type === 'exam_19' ? '0.0' : '7.0';
+                    const defaultFallback = meta.paper_type === 'kaoyan' ? '0.0' : '7.0';
                     const defaultSpace = parseFloat(meta.solution_space_default !== undefined ? meta.solution_space_default : defaultFallback);
                     solSpaceCm = parseFloat(item.solution_space !== undefined ? item.solution_space : defaultSpace);
                     if (isNaN(solSpaceCm)) solSpaceCm = 0.0;
@@ -1350,7 +1331,7 @@
                 }
 
                 let stemLine = '';
-                if (qType === 'single_choice' || qType === 'multi_choice') {
+                if (qType === 'single_choice') {
                     let stemContent = contentHtml;
                     let choicesGrid = '';
                     if (contentHtml.includes('choices-grid') || contentHtml.includes('katex-choices-grid') || contentHtml.includes('grid-cols-')) {
@@ -1962,9 +1943,9 @@
         }
 
         try {
-            const isExam19 = window.PaperStore.meta.paper_type === 'exam_19';
+            const isKaoyan = window.PaperStore.meta.paper_type === 'kaoyan';
             if (window.showToast) {
-                window.showToast(isExam19 ? '正在生成 Word 试卷及解析压缩包（正文+解析，不含答题卡）...' : '正在生成 Word 试卷及参考答案压缩包...', 'info');
+                window.showToast(isKaoyan ? '正在生成 Word 试卷及解析压缩包（正文+解析，不含答题卡）...' : '正在生成 Word 试卷及参考答案压缩包...', 'info');
             }
             const payload = {
                 title: window.PaperStore.meta.title,
@@ -2227,10 +2208,8 @@
                 }
 
                 const paperTypeMap = {
-                    'exam_19': { label: '19题高考卷', color: 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300' },
-                    'exam': { label: '常规试卷', color: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300' },
-                    'quiz': { label: '日常小练', color: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300' },
-                    'handout': { label: '讲义/教案', color: 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300' }
+                    'kaoyan': { label: '考研数学整卷', color: 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300' },
+                    'quiz': { label: '考研数学小练', color: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300' }
                 };
 
                 container.innerHTML = papers.map(p => {
@@ -2291,7 +2270,7 @@
                 // Update metadata
                 window.PaperStore.meta.title = paper.title || '未命名试卷';
                 window.PaperStore.meta.subtitle = paper.subtitle || '';
-                window.PaperStore.meta.paper_type = paper.paper_type || 'exam';
+                window.PaperStore.meta.paper_type = paper.paper_type || 'kaoyan';
                 window.PaperStore.meta.show_notice = paper.show_notice !== false;
                 window.PaperStore.meta.show_secret = paper.show_secret !== false;
 
@@ -2404,7 +2383,6 @@
         }
         const map = {
             single_choice: '单选题',
-            multi_choice: '多选题',
             fill_in_blank: '填空题',
             detailed_answer: '解答题'
         };
@@ -2425,12 +2403,10 @@
             }
         } else {
             const fallbackMap = {
-                easy: '普通题',
-                easy_error: '易错题',
-                medium: '挑战题',
-                challenge: '挑战题',
-                hard: '强基题',
-                qiangji: '强基题'
+                basic: '基础巩固',
+                standard: '真题常规',
+                comprehensive: '综合提升',
+                advanced: '压轴拔高'
             };
             label = fallbackMap[diff] || diff;
         }
@@ -2438,13 +2414,13 @@
         if (!colorClass) {
             if (typeof window.getDifficultyColor === 'function') {
                 colorClass = window.getDifficultyColor(diff);
-            } else if (diff === 'easy' || diff === 'normal') {
+            } else if (diff === 'standard') {
                 colorClass = 'text-blue-600 bg-blue-50 border border-blue-200/60 dark:bg-blue-900/30 dark:text-blue-300';
-            } else if (diff === 'easy_error') {
+            } else if (diff === 'basic') {
                 colorClass = 'text-green-600 bg-green-50 border border-green-200/60 dark:bg-green-900/30 dark:text-green-300';
-            } else if (diff === 'hard' || diff === 'qiangji') {
+            } else if (diff === 'advanced') {
                 colorClass = 'text-purple-600 bg-purple-50 border border-purple-200/60 dark:bg-purple-900/30 dark:text-purple-300';
-            } else if (diff === 'challenge') {
+            } else if (diff === 'comprehensive') {
                 colorClass = 'text-red-600 bg-red-50 border border-red-200/60 dark:bg-red-900/30 dark:text-red-300';
             } else {
                 colorClass = 'text-slate-600 bg-slate-100 border border-slate-200/60';

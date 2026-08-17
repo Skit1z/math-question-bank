@@ -2,11 +2,11 @@
 
 [中文](README.md) | [English](README_EN.md)
 
-> **Project Tags**: Math Question Bank | High School Math | Lesson Prep & Teaching Research | A4 Layout Simulation | Intelligent Exam Generation | Gaokao-Level Export | Formula OCR | DeepSeek AI | EdTech
+> **Project Tags**: Math Question Bank | Graduate-Entrance Mathematics | Past Papers & Mock Exams | A4 Layout Simulation | Intelligent Exam Generation | PDF/Word Export | Formula OCR | DeepSeek AI
 
-**MathBank** is a lightweight, semi-automated math question bank and exam paper layout workbench running entirely on your local computer, tailored specifically for secondary school mathematics teachers.
+**MathBank** is a lightweight, semi-automated graduate-entrance mathematics question bank and exam paper layout workbench running entirely on your local computer.
 
-No frontend build step is required. The Windows portable package includes Python and runs after extraction. The macOS package does not include Python, so confirm that Python 3.10 or newer is installed on the Mac before launching it; the launcher automatically detects it and creates or repairs the isolated project `venv`. MathBank supports second-level real-time preview of LaTeX formulas and geometric figures, deeply integrated with one-click exam paper creation, A4 simulation canvas layout, Gaokao-level PDF exam paper export, DeepSeek AI problem solving, and one-click formula OCR recognition.
+No frontend build step is required. The Windows portable package includes Python and runs after extraction. The macOS package does not include Python, so confirm that Python 3.10 or newer is installed on the Mac before launching it; the launcher automatically detects it and creates or repairs the isolated project `venv`. MathBank supports second-level real-time preview of LaTeX formulas and figures, graduate-math paper creation, A4 canvas layout, PDF/Word export, DeepSeek AI problem solving, and one-click formula OCR recognition.
 
 ![MathBank Question Bank Workbench](docs/images/screenshot1.png)
 
@@ -18,10 +18,10 @@ No frontend build step is required. The Windows portable package includes Python
 
 With just basic LaTeX math formula syntax, MathBank empowers frontline math teachers to efficiently solve exam generation and lesson preparation challenges:
 
-- 🎨 **1:1 A4 Simulation Exam Layout**: Provides an intuitive exam paper canvas just like Word, complete with sealing line, title, and notice box. Supports drag-and-drop sorting, question blank space height adjustment, and one-click switching to A3 answer sheet or Gaokao 19-question preset.
-- ⚡ **Second-Level Formula Rendering & Exam-Level Export**: Built-in professional math formula typesetting engine with real-time web preview. Supports one-click export of high-definition PDFs matching National College Entrance Examination (Gaokao) standards and complete LaTeX source packages.
+- 🎨 **1:1 A4 Simulation Exam Layout**: Provides an intuitive exam paper canvas just like Word, complete with sealing line, title, and notice box. Supports drag-and-drop sorting, solution-space adjustment, and graduate-math answer-sheet export.
+- ⚡ **Second-Level Formula Rendering & Full-Paper Export**: Built-in professional math formula typesetting engine with real-time web preview. Supports high-definition graduate-math PDF files and complete LaTeX source packages.
 - 🤖 **AI Intelligent Exam Generation & Solving Assistance**: Built-in Large Language Models (DeepSeek, etc.) automatically select questions and generate exams based on knowledge point breakdown tables and difficulty gradients; supports single-question AI generation of detailed solutions and teaching reflections.
-- 📚 **One-Click Switching Across Major Curriculum Outlines**: Natively preloaded with standard High School curriculum outlines: **PEP A (人教A版)**, **PEP B (人教B版)**, **Jiangsu (苏教版)**, and **Shanghai (沪教版)**. Changing outlines automatically and intelligently maps questions without manual re-organization.
+- 📚 **Graduate-Math Curriculum Classification**: Ships with the K outline organized as Mathematics I/II/III → subject → topic, with no other school-stage curriculum.
 - 📄 **Multi-Format Exam Smart Parsing & PDF Dual-Strategy Route**: Supports direct drag-and-drop of **LaTeX source (.tex)**, **PDF exams (.pdf)**, or **Word documents (.docx)** for fast intelligent slice parsing. PDF parsing natively offers dual strategies: **[Native Vector Text & Formula Extraction] (Default Recommended)** and **[Full-Page Visual OCR]**. Primary recommendation is native extraction using `PDF Inspector` for sub-second, 0-visual-token loss extraction; if images cause missing formulas, the system smoothly falls back to VLM visual OCR completion; a full-page visual OCR channel is also available as a reliable fallback for unusually formatted exams, ensuring 100% breakdown success rate. Word import structurally converts Office OMML and parses MathType structures from OLE `Equation Native` streams, preserving preview images with manual audit tags for non-high-confidence formulas.
 
 ---
@@ -126,6 +126,7 @@ Directly using [DeepSeek Official Open Platform](https://platform.deepseek.com/)
 * **Must use Multimodal LLMs**: Formula OCR reads images, so **pure language models (like DeepSeek V3/R1 text-only) cannot be used for OCR**.
 * **Domestic Model Options**: Recommend **Qwen-VL** or **MIMO** series. E.g., registering via [SiliconFlow Referral Link](https://cloud.siliconflow.cn/i/hkgjSWrg) grants a **¥16 voucher**; or register on [Aliyun Bailian Platform](https://bailian.console.aliyun.com/), which offers a **3-month free trial quota** for multimodal models. Use `Qwen/Qwen3-VL-8B-Instruct` on SiliconFlow; on Bailian, use `qwen3.7-flash` for routine OCR, paper parsing, and classification, or `qwen3.7-plus` for solving and TikZ drawing.
 * **Overseas / Aggregator Providers**: If you have access to API relay platforms, **`GPT-5.6 Luna` is strongly recommended**! Recent price drops make GPT-5.6 Luna perform significantly better than most models in formula extraction accuracy while being **cheaper than Qwen**, making it the top choice for OCR.
+* **PaddleOCR Official API**: Select `PaddleOCR` in Settings and enter an AI Studio `PADDLEOCR_ACCESS_TOKEN` to use hosted `PP-OCRv6` / `PP-OCRv5` general OCR or `PaddleOCR-VL-1.6` document, layout, and formula parsing. The service uploads the local image and polls the asynchronous result; the VL model returns Markdown structure and formula content. See the [PaddleOCR official API documentation](https://www.paddleocr.ai/latest/en/version3.x/inference_deployment/serving/paddleocr_official_api/overview.html).
 
 ### 3. 🎨 TikZ Geometry Diagram Redrawing Model (`PREFER_DRAW_MODEL`)
 * If two-stage multimodal geometric illustration redrawing is enabled, **avoid using domestic models** (currently domestic models underperform on TikZ geometry code generation).
@@ -203,7 +204,7 @@ python3 -m scripts.restore data_backup/snapshots/mathbank-backup-TIMESTAMP.zip
 python3 -m scripts.restore data_backup/snapshots/mathbank-backup-TIMESTAMP.zip --apply --yes
 ```
 
-Full backups include a per-file SHA-256 manifest and exclude `.env`, the local token, and API secrets. The server and restore tool share a cross-platform runtime lock, so restore refuses to run until the service is fully stopped. `questions_backup.json` is a compatibility JSON export for search/sync; it is not a disaster-recovery backup.
+Full backups include a per-file SHA-256 manifest and exclude `.env`, the local token, and API secrets. The server and restore tool share a cross-platform runtime lock, so restore refuses to run until the service is fully stopped. `questions_backup.json` is a JSON export for search/sync; it is not a disaster-recovery backup.
 
 ---
 
@@ -231,7 +232,7 @@ Full backups include a per-file SHA-256 manifest and exclude `.env`, the local t
 │   ├── paper_helper.py         # LaTeX/PDF compilation, layout & LRU cache
 │   ├── sync_helper.py          # JSON sync export & AI library sanitizer
 │   ├── paths.py                # Single source of truth for project paths
-│   ├── curriculums.py          # Preset loader for 4 curriculum outlines
+│   ├── curriculums.py          # K graduate-math outline and metadata
 │   ├── prompts.py              # Prompt builder for OCR/solve/parse/TikZ/paper
 │   ├── ai_providers.py         # AI provider & model parameter parsers
 │   ├── ai_http.py              # AI HTTP requests & authentication
@@ -242,7 +243,7 @@ Full backups include a per-file SHA-256 manifest and exclude `.env`, the local t
 │   ├── mtef_helper.py          # MathType OLE/MTEF v5 parser & diagnostics
 │   ├── docx_helper.py          # Word text/table/image extractor & report
 │   ├── pdf_inspector_helper.py # PDF Inspector vector text extraction
-│   └── resources/curriculums/  # Shared JSON outlines for A/B/S/H editions
+│   └── resources/curriculums/  # K graduate-math JSON outline
 ├── scripts/                    # Maintenance, migration, search & release tools
 │   ├── search_questions.py
 │   ├── backup.py
@@ -263,7 +264,7 @@ Full backups include a per-file SHA-256 manifest and exclude `.env`, the local t
 ├── templates/                  # LaTeX templates & exam-zh macro package library
 ├── tests/                      # Pytest automated testing & artifacts
 ├── main.py                     # FastAPI service entry point & routing
-├── math_question_bank.db       # Local SQLite database (retained for backward compatibility)
+├── math_question_bank.db       # Local K-version graduate-math SQLite database
 ├── 启动题库系统.bat            # Windows one-click start script
 ├── 启动题库系统.command        # macOS one-click start script
 ├── README.md                   # Chinese documentation

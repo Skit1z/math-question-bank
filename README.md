@@ -2,11 +2,11 @@
 
 [中文](README.md) | [English](README_EN.md)
 
-> **项目标签**：数学题库 | 高中数学 | 备课教研 | A4 仿真排版 | 智能组卷 | 高考级导出 | OCR 识图 | DeepSeek AI | 教育技术
+> **项目标签**：数学题库 | 考研数学 | 真题与模拟题 | A4 仿真排版 | 智能组卷 | 研究生入学考试导出 | OCR 识图 | DeepSeek AI
 
-**MathBank** 是一个专为中学数学教师打造的、完全运行在您自己电脑上的轻量级半自动化数学题库与组卷排版工作台。
+**MathBank** 是一个专为考研数学学习、教研与组卷打造的、完全运行在您自己电脑上的轻量级半自动化数学题库与组卷排版工作台。
 
-无需复杂的前端编译即可运行：Windows 便携包内置 Python，解压后即可启动；macOS 便携包不内置 Python，运行前请确认本机已安装 Python 3.10 或更高版本，启动器会自动检测并创建或修复项目隔离的 `venv`。支持数学公式与几何图形秒级预览，深度集成一键组卷、A4 仿真画布排版、高考级 PDF 试卷导出、DeepSeek AI 解题以及一键 OCR 题目识别。
+无需复杂的前端编译即可运行：Windows 便携包内置 Python，解压后即可启动；macOS 便携包不内置 Python，运行前请确认本机已安装 Python 3.10 或更高版本，启动器会自动检测并创建或修复项目隔离的 `venv`。支持数学公式与图形秒级预览，深度集成考研数学整卷组卷、A4 画布排版、PDF/Word 导出、DeepSeek AI 解题以及一键 OCR 题目识别。
 
 ![MathBank 题库研讨工作台](docs/images/screenshot1.png)
 
@@ -16,12 +16,12 @@
 
 ## ✨ 核心亮点
 
-只需了解一些基础的 LaTeX 数学公式语法，MathBank 就能帮一线数学老师高效解决组卷与备课难题：
+只需了解一些基础的 LaTeX 数学公式语法，MathBank 就能帮助考研数学学习者与教研者高效完成题目整理、训练和组卷：
 
-- 🎨 **1:1 A4 仿真组卷排版**：提供像 Word 一样直观的仿真试卷画布，密封线、大标题、注意事项框一应俱全。支持拖拽排序、题目留白高度调整，以及一键切换 A3 答题卡与高考 19 题预设。
-- ⚡ **秒级公式渲染与高考级导出**：内置专业数学公式排版引擎，网页上修改秒级实时预览。支持一键导出高考标准的高清 PDF 试卷与完整的排版源码包。
-- 🤖 **AI 智能组卷与辅助解答**：内置 DeepSeek 等大语言模型，能根据考点细目表与难度阶梯一键自动挑选题目生成试卷；支持单题一键 AI 生成详细解析与教学反思。
-- 📚 **主流教材大纲一键切换**：原生预设 **人教A版**、**人教B版**、**苏教版**与**沪教版**标准高中大纲目录，切换大纲时系统自动智能映射，无需手动重新整理题目。
+- 🎨 **1:1 A4 仿真组卷排版**：提供像 Word 一样直观的仿真试卷画布，密封线、大标题、注意事项框一应俱全。支持拖拽排序、题目留白高度调整和考研数学答题卡导出。
+- ⚡ **秒级公式渲染与整卷导出**：内置专业数学公式排版引擎，网页上修改即可实时预览。支持一键导出考研数学风格的高清 PDF 试卷与完整排版源码包。
+- 🤖 **AI 智能组卷与辅助解答**：内置 DeepSeek 等大语言模型，能根据考点细目表与难度阶梯一键自动挑选题目生成试卷；支持单题一键 AI 生成详细解析与解题复盘。
+- 📚 **考研数学大纲分类**：原生预设考研数学 K 大纲，按数学一/数学二/数学三、科目和考点三级组织题目，不保留其他学段分类。
 - 📄 **多格式试卷智能拆解与 PDF 双策略分流**：支持直接拖入 **LaTeX 源码 (.tex)**、**PDF 试卷 (.pdf)** 或 **Word 试卷 (.docx)** 快速智能切片拆题。PDF 拆解原生提供 **【原生文字公式提取】（默认推荐）** 与 **【全图视觉 OCR】** 双解析策略：推荐优先使用原生提取模式，享受 `PDF Inspector` 毫秒级 0 视觉 Token 损耗的极速提取，当遇到 Word/MathType 特殊导出卷导致公式硬转化为图片时，系统会自动平滑降级并触发 VLM 视觉 OCR 识图补全；同时，为避免极少数排版极其特殊的试卷使自愈规则失效，系统亦保留了全图视觉 OCR 的强力备选通道，保障 100% 拆解成功率。Word 导入则会结构化转换 Office OMML，并从 OLE `Equation Native` 流解析 MathType 结构，不能高置信转换的公式保留原预览图并标记人工核对。
 
 ---
@@ -60,7 +60,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     Doc[试卷文档解析] --> Seg[题目切片分割]
-    Seg --> Classify[教材大纲智能分类与打标]
+    Seg --> Classify[考研大纲智能分类与打标]
     Classify --> Validate[结构化 JSON 容错校验]
     Validate --> Solve[异步并发 AI 解题引擎]
 ```
@@ -126,6 +126,7 @@ flowchart LR
 * **必须使用多模态大模型**：公式识图需要读取图像，因此 **DeepSeek 纯语言模型无法用于 OCR 识图**。
 * **国内模型选型**：推荐使用 **通义千问 (Qwen-VL)** 或 **MIMO** 系列。例如通过 [硅基流动 (SiliconFlow) 专属链接](https://cloud.siliconflow.cn/i/hkgjSWrg) 注册并完成实名认证后，可直接获得 **16 元代金券** 试用赠额；或者前往 [阿里云百炼平台](https://bailian.console.aliyun.com/) 注册，旗下的多模态模型在 **3 个月内均提供免费试用额度**。硅基流动可使用 `Qwen/Qwen3-VL-8B-Instruct`；阿里百炼常规 OCR、拆卷和分类推荐 `qwen3.7-flash`，解答与绘图推荐 `qwen3.7-plus`。
 * **海外/中转站模型**：如果有合适的中转站或者其他渠道，**强烈推荐选择 `GPT-5.6 Luna`**！GPT 5.6 Luna 最近大幅降价，不仅在公式提取与精度上远超大多数模型，**使用成本甚至比千问还要便宜**，是识图的首选。
+* **PaddleOCR 官方 API**：在设置中选择 `PaddleOCR`，填写 AI Studio 的 `PADDLEOCR_ACCESS_TOKEN`，即可使用官方托管的 `PP-OCRv6` / `PP-OCRv5` 通用文字识别，或选择 `PaddleOCR-VL-1.6` 进行文档、版面与公式解析。该接口提交本地图片后异步轮询结果；VL 模型返回 Markdown 结构与公式内容。详见 [PaddleOCR 官方 API 文档](https://www.paddleocr.ai/latest/en/version3.x/inference_deployment/serving/paddleocr_official_api/overview.html)。
 
 ### 3. 🎨 TikZ 几何绘图模型（`PREFER_DRAW_MODEL`）
 * 如果开启了双阶段多模态几何插图重绘，**建议不要使用国内模型**（目前国内模型在 TikZ 几何代码生成上表现普遍较差）。
@@ -171,7 +172,7 @@ flowchart LR
 > 完整备份是覆盖升级的首选保险。如需额外手动备份，请备份以下重要文件/目录：
 > - `*.db` (本地题目数据库)
 > - `.env` (API 密钥配置)
-> - `data_backup/` (自定义维度与章节大纲配置)
+> - `data_backup/` (自定义维度与科目/考点大纲配置)
 > - `static/uploads/` (已上传的插图与几何图形)
 
 ---
@@ -203,7 +204,7 @@ python3 -m scripts.restore data_backup/snapshots/mathbank-backup-时间戳.zip
 python3 -m scripts.restore data_backup/snapshots/mathbank-backup-时间戳.zip --apply --yes
 ```
 
-完整备份含逐文件 SHA-256 清单，不包含 `.env`、本地 Token 或 API 密钥。服务与恢复工具共用跨平台运行锁，服务未完全关闭时恢复会拒绝执行。`questions_backup.json` 只是兼容检索与同步的 JSON 导出，不能代替完整备份。
+完整备份含逐文件 SHA-256 清单，不包含 `.env`、本地 Token 或 API 密钥。服务与恢复工具共用跨平台运行锁，服务未完全关闭时恢复会拒绝执行。`questions_backup.json` 只是检索与同步的 JSON 导出，不能代替完整备份。
 
 ---
 
@@ -231,7 +232,7 @@ python3 -m scripts.restore data_backup/snapshots/mathbank-backup-时间戳.zip -
 │   ├── paper_helper.py         # LaTeX/PDF 编译、排版与 LRU 缓存
 │   ├── sync_helper.py          # JSON 同步导出与 AI 题库清洗
 │   ├── paths.py                # 与工作目录无关的项目路径单一来源
-│   ├── curriculums.py          # 四套教材预设加载与默认元数据
+│   ├── curriculums.py          # 考研数学 K 大纲加载与默认元数据
 │   ├── prompts.py              # OCR/解题/拆卷/TikZ/组卷提示构建器
 │   ├── ai_providers.py         # AI Provider 与模型参数解析
 │   ├── ai_http.py              # AI HTTP 请求与鉴权
@@ -242,7 +243,7 @@ python3 -m scripts.restore data_backup/snapshots/mathbank-backup-时间戳.zip -
 │   ├── mtef_helper.py          # MathType OLE/MTEF v5 结构解析与失败诊断
 │   ├── docx_helper.py          # Word 文字/表格/图片安全提取与诊断报告
 │   ├── pdf_inspector_helper.py # PDF Inspector 原生矢量直提与双轨探测
-│   └── resources/curriculums/  # A/B/S/H 四套共享 JSON 大纲
+│   └── resources/curriculums/  # K 版考研数学 JSON 大纲
 ├── scripts/                    # 运维、迁移、检索与 Release 工具
 │   ├── search_questions.py
 │   ├── backup.py
@@ -263,7 +264,7 @@ python3 -m scripts.restore data_backup/snapshots/mathbank-backup-时间戳.zip -
 ├── templates/                  # LaTeX 试卷模板与 exam-zh 宏包库
 ├── tests/                      # Pytest 自动化测试与 artifacts
 ├── main.py                     # FastAPI 服务主入口与路由逻辑
-├── math_question_bank.db       # 本地 SQLite 主数据库（根目录兼容保留）
+├── math_question_bank.db       # 本地 SQLite 主数据库（K 版考研数学）
 ├── 启动题库系统.bat            # Windows 一键启动脚本
 ├── 启动题库系统.command        # macOS 一键启动脚本
 ├── README.md                   # 中文说明文档

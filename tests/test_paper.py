@@ -13,11 +13,11 @@ def test_paper_api_flow(client):
     q_data = {
         "content": "已知函数 $f(x) = x^2 + 2x + 1$，求 $f(1)$ 的值。\n\\begin{choices}\n\\item 1\n\\item 2\n\\item 4\n\\item 8\n\\end{choices}",
         "question_type": "single_choice",
-        "category_compulsory": "必修第一册",
-        "category_chapter": "第一章 集合与常用逻辑用语",
-        "category_knowledge": "集合的概念",
-        "difficulty": "easy",
-        "source": "2026月考",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "函数、极限与连续",
+        "difficulty": "standard",
+        "source": "考研数学真题",
         "answer_markdown": "解：$f(1) = 1^2 + 2(1) + 1 = 4$。故选 C。",
         "review": "易错点：计算细节",
         "tags": "函数,计算",
@@ -36,9 +36,9 @@ def test_paper_api_flow(client):
     
     # 3. Save Paper & verify usage_count increment
     paper_payload = {
-        "title": "测试高中数学单元测试卷",
+        "title": "测试考研数学单元测试卷",
         "subtitle": "满分150分",
-        "paper_type": "exam",
+        "paper_type": "kaoyan",
         "questions": [{"id": q_id, "score": 5, "order": 1}]
     }
     save_res = client.post("/api/paper/save", json=paper_payload, headers=headers)
@@ -76,7 +76,7 @@ def test_paper_api_flow(client):
 
     detail_res = client.get(f"/api/papers/{paper_id}")
     assert detail_res.status_code == 200
-    assert detail_res.json()["data"]["title"] == "测试高中数学单元测试卷"
+    assert detail_res.json()["data"]["title"] == "测试考研数学单元测试卷"
     assert len(detail_res.json()["data"]["questions"]) == 1
 
     del_res = client.delete(f"/api/papers/{paper_id}", headers=headers)
@@ -90,12 +90,12 @@ def test_ai_paper_selection_uses_shared_provider_and_clean_effort(
     question = Question(
         content="求函数的导数",
         question_type="detailed_answer",
-        difficulty="medium",
+        difficulty="standard",
     )
     excluded_question = Question(
         content="不应越过类型筛选的选择题",
         question_type="single_choice",
-        difficulty="medium",
+        difficulty="standard",
     )
     db_session.add_all([question, excluded_question])
     db_session.commit()
@@ -171,7 +171,7 @@ def test_invalid_paper_items_are_rejected_without_partial_rows(
 
     result = client.post(
         "/api/paper/save",
-        json={"title": "无效试卷", "paper_type": "exam", "questions": questions},
+        json={"title": "无效试卷", "paper_type": "kaoyan", "questions": questions},
         headers={"X-Local-Token": LOCAL_TOKEN},
     )
 
@@ -181,7 +181,7 @@ def test_invalid_paper_items_are_rejected_without_partial_rows(
     db_session.refresh(question)
     assert question.usage_count in {None, 0}
 
-def test_exam_19_and_answer_sheet_generation(client):
+def test_kaoyan_and_answer_sheet_generation(client):
     headers = {"X-Local-Token": LOCAL_TOKEN}
     
     from mathbank.paper_helper import build_answer_sheet_latex
@@ -197,17 +197,17 @@ def test_exam_19_and_answer_sheet_generation(client):
         }
     ]
     
-    sheet_tex = build_answer_sheet_latex("2026年模拟考试试卷", "", questions_data)
+    sheet_tex = build_answer_sheet_latex("2026年考研数学模拟试题", "", questions_data)
     assert "\\documentclass" in sheet_tex
-    assert "2026年模拟考试试卷" in sheet_tex
-    assert "15.（13分）" in sheet_tex
+    assert "2026年考研数学模拟试题" in sheet_tex
+    assert "1." in sheet_tex and "13分" in sheet_tex
     assert "\\begin{tikzpicture}" in sheet_tex
     
-    # Test export endpoints for exam_19
+    # Test export endpoints for the graduate-math paper mode.
     paper_payload = {
-        "title": "2026年高考模拟试卷",
+        "title": "2026年考研数学模拟试题",
         "subtitle": "数学",
-        "paper_type": "exam_19",
+        "paper_type": "kaoyan",
         "questions": []
     }
     
@@ -216,9 +216,9 @@ def test_exam_19_and_answer_sheet_generation(client):
     assert export_res.headers.get("content-type") == "application/zip"
 
     pdf_sheet_payload = {
-        "title": "2026年高考模拟试卷",
+        "title": "2026年考研数学模拟试题",
         "subtitle": "数学",
-        "paper_type": "exam_19",
+        "paper_type": "kaoyan",
         "target": "sheet",
         "questions": []
     }
@@ -257,11 +257,11 @@ def test_solution_space_latex_generation():
         "solution_space": "0.0"
     }]
     
-    # 1. Non-exam_19 paper mode -> should inject \vspace*{6.5cm}
-    tex = build_latex_document("单元测试", "试卷", "exam", questions_data_65, include_answers=False)
+    # 1. Graduate-math paper mode -> should inject \vspace*{6.5cm}
+    tex = build_latex_document("考研数学单元测试", "试卷", "kaoyan", questions_data_65, include_answers=False)
     assert r"\vspace*{6.5cm}" in tex
     
-    # 2. exam_19 paper mode with 3.0cm solution space -> should inject \vspace*{3.0cm}
+    # 2. Graduate-math paper mode with 3.0cm solution space.
     questions_data_3 = [{
         "question": {
             "id": 99,
@@ -272,9 +272,9 @@ def test_solution_space_latex_generation():
         "score": 12,
         "solution_space": "3.0"
     }]
-    tex_19_three = build_latex_document("高考模拟", "试卷", "exam_19", questions_data_3, include_answers=False)
+    tex_19_three = build_latex_document("考研数学模拟", "试卷", "kaoyan", questions_data_3, include_answers=False)
     assert r"\vspace*{3.0cm}" in tex_19_three
 
-    # 3. exam_19 paper mode with 0.0cm solution space -> should not inject \vspace
-    tex_19_zero = build_latex_document("高考模拟", "试卷", "exam_19", questions_data_zero, include_answers=False)
+    # 3. Graduate-math paper mode with 0.0cm solution space.
+    tex_19_zero = build_latex_document("考研数学模拟", "试卷", "kaoyan", questions_data_zero, include_answers=False)
     assert r"\vspace*" not in tex_19_zero

@@ -316,6 +316,54 @@ def test_bailian_ocr_defaults_to_current_flash_model():
     assert config.model_name == "qwen3.7-flash"
 
 
+def test_paddleocr_provider_resolves_official_api_settings():
+    config = resolve_ocr_provider(
+        "paddleocr",
+        {
+            "PADDLEOCR_ACCESS_TOKEN": "paddle-token",
+            "PADDLEOCR_BASE_URL": "https://paddle.example/",
+            "PADDLEOCR_MODEL": "PP-OCRv5",
+        },
+    )
+
+    assert config.provider_code == "paddleocr"
+    assert config.provider_label == "PaddleOCR 官方 API"
+    assert config.api_key_env == "PADDLEOCR_ACCESS_TOKEN"
+    assert config.api_key == "paddle-token"
+    assert config.api_base == "https://paddle.example/"
+    assert config.model_name == "PP-OCRv5"
+    assert "paddle-token" not in repr(config)
+
+
+def test_paddleocr_provider_accepts_paddleocr_vl_16_model():
+    config = resolve_ocr_provider(
+        "paddleocr",
+        {
+            "PADDLEOCR_ACCESS_TOKEN": "paddle-token",
+            "PADDLEOCR_MODEL": "PaddleOCR-VL-1.6",
+        },
+    )
+
+    assert config.model_name == "PaddleOCR-VL-1.6"
+
+
+def test_paddleocr_fallbacks_start_with_paddleocr_when_selected():
+    providers = resolve_ocr_fallbacks(
+        "paddleocr",
+        {
+            "PADDLEOCR_ACCESS_TOKEN": "paddle-token",
+            "SILICONFLOW_API_KEY": "sf-key",
+            "ALI_BAILIAN_API_KEY": "bailian-key",
+        },
+    )
+
+    assert [provider.provider_code for provider in providers] == [
+        "paddleocr",
+        "siliconflow",
+        "bailian",
+    ]
+
+
 def test_draw_provider_removes_reasoning_suffix_and_keeps_legacy_transit_env():
     config = resolve_draw_provider(
         "ZHONGZHAN/gpt-5.6-luna:high",

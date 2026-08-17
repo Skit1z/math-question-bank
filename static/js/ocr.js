@@ -597,6 +597,8 @@
                     return "SiliconFlow 硅基流动云端";
                 } else if (val === 'ali_bailian') {
                     return "阿里百炼";
+                } else if (val === 'paddleocr') {
+                    return "PaddleOCR 官方 API";
                 }
                 return val || "";
             };

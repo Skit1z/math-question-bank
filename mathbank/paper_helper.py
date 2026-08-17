@@ -10,7 +10,6 @@ from collections import OrderedDict
 from io import BytesIO
 from sqlalchemy.orm import Session
 from mathbank.database import Question, Paper, PaperQuestion, QuestionCurriculum
-from mathbank.paths import TEMPLATES_DIR
 from mathbank.latex_diagnostics import build_local_latex_diagnostic
 from mathbank.asset_security import AssetSecurityError, resolve_upload_asset
 
@@ -49,12 +48,11 @@ def build_restricted_tex_environment(output_dir: str) -> dict[str, str]:
 # Constants for question type labels
 TYPE_LABELS = {
     "single_choice": "单项选择题",
-    "multi_choice": "多项选择题",
     "fill_in_blank": "填空题",
     "detailed_answer": "解答题"
 }
 
-TYPE_ORDER = ["single_choice", "multi_choice", "fill_in_blank", "detailed_answer"]
+TYPE_ORDER = ["single_choice", "fill_in_blank", "detailed_answer"]
 
 def clean_choice_stem_parentheses(text: str) -> str:
     """清洗选择题末尾的空括号，并保持数学定界符平衡。
@@ -143,7 +141,7 @@ def clean_content_for_latex(content: str, q_type: str = "", is_answer: bool = Fa
     text = content.strip()
     
     # 如果是选择题，先清洗题干末尾残留的全角/半角供填答空括号，避免与右侧 \paren 生成括号重叠
-    if q_type in ["single_choice", "multi_choice"] or r"\begin{choices}" in text or re.search(r'^\s*[-*]?\s*[A-D][\.、\s]', text, re.MULTILINE):
+    if q_type == "single_choice" or r"\begin{choices}" in text or re.search(r'^\s*[-*]?\s*[A-D][\.、\s]', text, re.MULTILINE):
         text = clean_choice_stem_parentheses(text)
     
     # If TikZ code is present in text, remove ANY markdown image tags ![](...) to avoid duplicate image rendering
@@ -176,8 +174,8 @@ def clean_content_for_latex(content: str, q_type: str = "", is_answer: bool = Fa
             choices_block = "  \\begin{choices}\n" + "\n".join(choices_items) + "\n  \\end{choices}"
             text = "\n".join(stem_lines).strip() + "\n" + choices_block
 
-    # For choice questions (single_choice, multi_choice), ensure \paren is present before \begin{choices} if not already present
-    if q_type in ["single_choice", "multi_choice"]:
+    # For single-choice questions, ensure \paren is present before choices.
+    if q_type == "single_choice":
         if r"\begin{choices}" in text:
             parts = text.split(r"\begin{choices}", 1)
             stem = clean_choice_stem_parentheses(parts[0])
@@ -210,7 +208,7 @@ def build_latex_document(
     Generate LaTeX source code based on exam-zh document class matching 试卷类模板.tex.
     questions_data: list of dicts with keys 'question' (Question dict) and 'score' (int).
     """
-    paper_title = title.strip() or "2025 年普通高等学校招生全国统一考试(模拟卷)"
+    paper_title = title.strip() or "考研数学模拟试题"
     sub_title = subtitle.strip()
     
     total_q_count = len(questions_data)
@@ -221,7 +219,7 @@ def build_latex_document(
     # Fandol ships with TeX Live and avoids platform-specific ctex font names
     # such as STHeiti, which XeLaTeX may fail to resolve on macOS.
     lines.append(r"\documentclass[fontset=fandol]{exam-zh}")
-    # Stable high-school mathematics baseline. Keep packages that alter core
+    # Stable graduate-math baseline. Keep packages that alter core
     # math semantics (for example physics/unicode-math) out of this default.
     lines.append(r"\usepackage{amsmath,mathtools,cancel,cases,mhchem,siunitx,extarrows}")
     # exam-zh uses unicode-math, which rejects the legacy bm package. Preserve
@@ -272,7 +270,7 @@ def build_latex_document(
     lines.append(r"\raggedbottom")
     lines.append("")
     
-    is_exam_style = (paper_type == "exam" or paper_type == "exam_19")
+    is_exam_style = paper_type == "kaoyan"
     if is_exam_style:
         if show_secret:
             lines.append(r"\secret")
@@ -288,20 +286,20 @@ def build_latex_document(
         
     if is_exam_style:
         lines.append(r"\begin{center}")
-        lines.append(f"    本试卷共 \\pageref{{LastPage}} 页，{total_q_count} 题。全卷满分 {total_score_sum} 分。考试用时 120 分钟。")
+        lines.append(f"    本试卷共 \\pageref{{LastPage}} 页，{total_q_count} 题。全卷满分 {total_score_sum} 分。考试用时 180 分钟。")
         lines.append(r"\end{center}")
         lines.append("")
         if show_notice:
             lines.append(r"\begin{notice}")
-            lines.append(r"  \item 答卷前，考生务必将自己的姓名、考生号、考场号、座位号填写在答题卡上。")
-            lines.append(r"  \item 回答选择题时，选出每小题答案后，用铅笔把答题卡上对应题目的答案标号涂黑，如需改动，用橡皮擦干净后，再选涂其他答案标号。回答非选择题时，将答案写在答题卡上。写在本试卷上无效。")
-            lines.append(r"  \item 考试结束后，将本试卷和答题卡一并交回。")
+            lines.append(r"  \item 答卷前，请按要求填写姓名、考生编号等信息。")
+            lines.append(r"  \item 选择题请将所选答案填涂在答题卡相应位置；非选择题请在答题区域内作答。")
+            lines.append(r"  \item 请保持答题卡整洁，考试结束后按监考人员要求交回试卷和答题卡。")
             lines.append(r"\end{notice}")
         else:
             lines.append(r"% \begin{notice}")
-            lines.append(r"%   \item 答卷前，考生务必将自己的姓名、考生号、考场号、座位号填写在答题卡上。")
-            lines.append(r"%   \item 回答选择题时，选出每小题答案后，用铅笔把答题卡上对应题目的答案标号涂黑，如需改动，用橡皮擦干净后，再选涂其他答案标号。回答非选择题时，将答案写在答题卡上。写在本试卷上无效。")
-            lines.append(r"%   \item 考试结束后，将本试卷和答题卡一并交回。")
+            lines.append(r"%   \item 答卷前，请按要求填写姓名、考生编号等信息。")
+            lines.append(r"%   \item 选择题请将所选答案填涂在答题卡相应位置；非选择题请在答题区域内作答。")
+            lines.append(r"%   \item 请保持答题卡整洁，考试结束后按监考人员要求交回试卷和答题卡。")
             lines.append(r"% \end{notice}")
         lines.append("")
 
@@ -322,26 +320,9 @@ def build_latex_document(
         sec_score = sum(it.get("score", 5) for it in items)
         unit_score = items[0].get("score", 5) if count > 0 else 5
         
-        # For exam_19, set fixed starting question number according to Gaokao layout:
-        # 单选: 1
-        # 多选: 9
-        # 填空: 12
-        # 解答: 15
-        if paper_type == "exam_19":
-            if q_type == "single_choice":
-                lines.append(r"\ExplSyntaxOn \int_gset:Nn \g__examzh_question_index_int {1} \ExplSyntaxOff")
-            elif q_type == "multi_choice":
-                lines.append(r"\ExplSyntaxOn \int_gset:Nn \g__examzh_question_index_int {9} \ExplSyntaxOff")
-            elif q_type == "fill_in_blank":
-                lines.append(r"\ExplSyntaxOn \int_gset:Nn \g__examzh_question_index_int {12} \ExplSyntaxOff")
-            elif q_type == "detailed_answer":
-                lines.append(r"\ExplSyntaxOn \int_gset:Nn \g__examzh_question_index_int {15} \ExplSyntaxOff")
-
         if paper_type == "quiz":
             if q_type == "single_choice":
                 section_header = "单选题"
-            elif q_type == "multi_choice":
-                section_header = "多选题"
             elif q_type == "fill_in_blank":
                 section_header = "填空题"
             else:
@@ -349,8 +330,6 @@ def build_latex_document(
         else:
             if q_type == "single_choice":
                 section_header = f"选择题：本题共 {count} 小题，每小题 {unit_score} 分，共 {sec_score} 分。\n  在每小题给出的四个选项中，只有一项是符合题目要求的。"
-            elif q_type == "multi_choice":
-                section_header = f"多选题：本题共 {count} 小题，每小题 {unit_score} 分，共 {sec_score} 分。\n  在每小题给出的四个选项中，有多项符合题目要求。\n  全部选对的得 {unit_score} 分，部分选对的得部分分，有选错的得 0 分。"
             elif q_type == "fill_in_blank":
                 section_header = f"填空题：本题共 {count} 小题，每小题 {unit_score} 分，共 {sec_score} 分。"
             else:
@@ -741,274 +720,88 @@ def clear_pdf_cache():
         print("[PDF_CACHE] PDF LRU memory cache cleared.", flush=True)
 
 def build_answer_sheet_latex(title: str, subtitle: str, questions_data: list) -> str:
-    """
-    Generate Answer Sheet (答题卡.tex) LaTeX code based on templates/答题卡.tex or built-in default.
-    Dynamic updates: title, question scores, and embedded TikZ/image nodes for Q15-Q19.
-    """
-    template_path = str(TEMPLATES_DIR / "答题卡.tex")
-    content = ""
-    if os.path.exists(template_path):
-        try:
-            with open(template_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-        except Exception:
-            pass
-
-    if not content:
-        content = r"""
-\documentclass[UTF8, fontset=fandol, 11pt, oneside]{ctexart}
-\usepackage{amsmath, amsthm, amssymb, graphicx}
-\usepackage[export]{adjustbox}
-\usepackage[bookmarks=true, colorlinks, citecolor=blue, linkcolor=black]{hyperref}
-\usepackage[a3paper, landscape,left=0.7cm, right=0.7cm, top=0.6cm, bottom=0.6cm]{geometry}
-\usepackage{diagbox, tikz, fancyhdr, makecell, caption, float, eso-pic}
-\linespread{1.625}
-\setcounter{page}{1}
-\pagestyle{fancy}
-\fancyhf{}
-\definecolor{mycolor}{RGB}{255,50,165}
-\AddToShipoutPictureFG{%
-    \begin{tikzpicture}[remember picture, overlay]
-        \fill[black] ([xshift=0.7cm, yshift=0.6cm] current page.south west) rectangle ++(10mm, 6mm);
-        \fill[black] ([xshift=13.9cm, yshift=0.6cm] current page.south west) rectangle ++(10mm, 6mm);
-        \fill[black] ([xshift=27.1cm, yshift=0.6cm] current page.south west) rectangle ++(10mm, 6mm);
-        \fill[black] ([xshift=-0.7cm, yshift=0.6cm] current page.south east) rectangle ++(-10mm, 6mm);
-        \fill[black] ([xshift=-0.7cm, yshift=-0.6cm] current page.north east) rectangle ++(-10mm, -6mm);
-        \fill[black] ([xshift=0.7cm, yshift=-0.6cm] current page.north west) rectangle ++(10mm, -6mm);
-        \fill[black] ([xshift=13.9cm, yshift=-0.6cm] current page.north west) rectangle ++(10mm, -6mm);
-        \fill[black] ([xshift=27.1cm, yshift=-0.6cm] current page.north west) rectangle ++(10mm, -6mm);
-        \node at (current page.south) [anchor=south, yshift=0.6cm] {\color{mycolor}\textbf{数学答题卡第\thepage 面（共2面）}};
-    \end{tikzpicture}%
-}
-\begin{document}
-\centering
-\begin{tikzpicture}
-    \useasboundingbox (0,0) rectangle (39.2,28.25);
-    \node[font=\fontsize{16pt}{16pt}\selectfont] at (6.45,27.3) {\color{mycolor}\textbf{2026年普通高等学校招生全国统一考试}};
-    \node[font=\fontsize{22pt}{22pt}\selectfont] at (6.45,26.3){\textbf{数学答题卡}};
-    \node at (6.45,25) {考场号：\textcolor{mycolor}{\underline{\hspace{1.3cm}}} \hspace{0.6em}座位号：\textcolor{mycolor}{\underline{\hspace{1.3cm}}}\hspace{0.6em}姓名：\textcolor{mycolor}{\underline{\hspace{2.2cm}}} \hspace{0.6em}班级：\textcolor{mycolor}{\underline{\hspace{1.8cm}}}};
-    
-    \def\rows{10}\def\cols{10}\def\cellw{0.8}\def\cellh{0.5}\def\beginx{4.9}\def\beginy0{24.2}\def\fontHeight{0.6}\def\smallHeight{0.2}\def\selectw{0.5}\def\selecth{0.25}
-    \foreach \col [evaluate=\col as \x using \beginx+\col*\cellw] in {0,...,\cols} { \draw[mycolor] (\x, \beginy0-\fontHeight) -- (\x,\beginy0-\fontHeight-\cellw-\cellh*\rows-2*\smallHeight); }
-    \draw[mycolor] (\beginx,\beginy0-\fontHeight) -- (\beginx+\cellw*\cols,\beginy0-\fontHeight);
-    \draw[mycolor] (\beginx,\beginy0) -- (\beginx+\cellw*\cols,\beginy0);
-    \draw[mycolor] (\beginx,\beginy0) -- (\beginx,\beginy0-\fontHeight);
-    \draw[mycolor] (\beginx+\cellw*\cols,\beginy0) -- (\beginx+\cellw*\cols,\beginy0-\fontHeight);
-    \draw[mycolor] (\beginx,\beginy0-\fontHeight-\cellw) -- (\beginx+\cellw*\cols,\beginy0-\fontHeight-\cellw);
-    \draw[mycolor] (\beginx,\beginy0-\fontHeight-\cellw-\smallHeight*2-\cellh*\rows) -- (\beginx+\cellw*\cols,\beginy0-\fontHeight-\cellw-\smallHeight*2-\cellh*\rows);
-    \node at (\beginx+0.5*\cols*\cellw,\beginy0-0.5*\fontHeight) {\small\textbf{考\hspace{1em}生\hspace{1em}号}};
-    \foreach \row in {1,...,\rows} {
-        \foreach \col in {1,...,\cols} {
-            \node at (\beginx+\col*\cellw-0.5*\cellw,\beginy0-\fontHeight-\cellw-\smallHeight-\row*\cellh+0.5*\cellh) {\footnotesize\textcolor{mycolor}{\the\numexpr \row - 1 \relax}};
-            \draw[mycolor] (\beginx+\col*\cellw-0.5*\cellw-0.5*\selectw+0.25*\selectw,\beginy0-\fontHeight-\cellw-\smallHeight-\row*\cellh+0.5*\cellh+0.5*\selecth) -- ++(-0.25*\selectw,0) -- ++(0,-\selecth) -- ++(0.25*\selectw,0);
-            \draw[mycolor] (\beginx+\col*\cellw-0.5*\cellw-0.5*\selectw+0.75*\selectw,\beginy0-\fontHeight-\cellw-\smallHeight-\row*\cellh+0.5*\cellh+0.5*\selecth) -- ++(0.25*\selectw,0) -- ++(0,-\selecth) -- ++(-0.25*\selectw,0);
-        }
+    """Generate a clean graduate-math answer sheet for the selected questions."""
+    groups = {
+        "single_choice": [],
+        "fill_in_blank": [],
+        "detailed_answer": [],
     }
-    \foreach \row in {1,...,\rows} { \fill[black] (-0.7,\beginy0-\fontHeight-\cellw-\smallHeight-\row*\cellh+0.5*\cellh+0.5*\selecth) rectangle ++(\selectw,-\selecth); }
-    \foreach \col in{1,2,...,15} { \fill[black] (\beginx+\col*\cellw-0.5*\cellw-0.5*\selectw-4.5,28.1) rectangle ++(\selectw,-\selecth); }
-
-    \def\startx{0}\def\starty{24.2}\def\squarew{4.7}\def\squareh{6.8}\def\fontmarginx{0.1}\def\fontmarginy{0.1}
-    \draw[mycolor] (\startx,\starty) rectangle ++(\squarew,-\squareh);
-    \node[text width=4.3cm,align=left,anchor=north west] at (\startx+\fontmarginx,\starty-\fontmarginy)
-        {\fontsize{8pt}{8pt}\selectfont\textbf{注意事项}：\\1．答题前，考生务必用黑色字迹的钢笔或签字笔将考场号、座位号、姓名和考生号填写在答题卡上，并用2B铅笔将考生号对应的数字涂黑。\\2．选择题的选出每小题答案后，用2B铅笔把答题卡上对应题目的答案标号涂黑。如需改动，用橡皮擦擦干净后，再选其它答案标号涂黑。非选择题的答案不能超出指定答题区域。\\3．答题卡保持卡面整洁，不要折叠和弄破。\\};
-
-    \def\bigx{0}\def\bigy{16.9}\def\bigw{12.9}\def\bigh{16.3}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\chosex{0.2}\def\chosey{16.2}\def\chosew{12.5}\def\choseh{2.7}
-    \draw[black] (\chosex,\chosey) rectangle ++(\chosew,-\choseh);
-    \node[anchor=north west, align=left, font=\fontsize{10pt}{9pt}\selectfont] at (\chosex+0.1, \chosey+0.6) {\textbf{一、选择题}\\};
-    \def\chosenumx{0.7}\def\chosenumy{15.67}\def\chosedistancey{0.55}\def\numenglishd{0.7}\def\chosedistancex{0.75}\def\distance{1.1}\def\quantity{11}
-    \pgfmathsetmacro{\d}{\numenglishd+3*\chosedistancex+\distance}
-    \foreach \row in {0,...,\numexpr\quantity-1\relax} {
-        \pgfmathtruncatemacro{\nx}{floor(\row/4)}
-        \node at (\chosenumx+\nx*\d,\chosenumy-\row*\chosedistancey+\nx*4*\chosedistancey) {\the\numexpr \row + 1 \relax};
-        \foreach \col in {0,1,2,3} {
-            \pgfmathsetmacro{\x}{{"A","B","C","D"}[\col]}
-            \node at (\chosenumx+\numenglishd+\chosedistancex*\col+\nx*\d,\chosenumy-\row*\chosedistancey+\nx*4*\chosedistancey) {\footnotesize\textcolor{mycolor}{\x}};
-            \draw[mycolor] (\chosenumx+\numenglishd-0.25*\selectw+\chosedistancex*\col+\nx*\d,\chosenumy-\row*\chosedistancey+0.5*\selecth+\nx*4*\chosedistancey) -- ++(-0.25*\selectw,0) -- ++(0,-\selecth) -- ++(0.25*\selectw,0);
-            \draw[mycolor] (\chosenumx+\numenglishd+0.25*\selectw+\chosedistancex*\col+\nx*\d,\chosenumy-\row*\chosedistancey+0.5*\selecth+\nx*4*\chosedistancey) -- ++(0.25*\selectw,0) -- ++(0,-\selecth) -- ++(-0.25*\selectw,0);
-        }
-    }
-    \foreach \row in{0,1,2,3} { \fill[black] (-0.7,\chosenumy-\row*\chosedistancey+0.5*\selecth) rectangle ++(\selectw,-\selecth); }
-
-    \def\blankx{0.2}\def\blanky{12.8}\def\blankw{12.5}\def\blankh{1.4}
-    \def\blanknumx{0.7}\def\blanknumy{12}
-    \pgfmathsetmacro{\distancew}{\numenglishd + 3*\chosedistancex + \distance}
-    \draw[black] (\blankx,\blanky) rectangle ++(\blankw,-\blankh);
-    \node[anchor=north west, align=left, font=\fontsize{10pt}{9pt}\selectfont] at (\blankx+0.1, \blanky+0.6) {\textbf{二、填空题}\\};
-    \foreach \row in {0,1,2} {
-        \node at (\blanknumx+\row*\distancew+0.1,\blanknumy) {\the\numexpr \row + 12 \relax.};
-        \draw[mycolor] (\blanknumx+\row*\distancew+0.4,\blanknumy-0.2) -- ++(\distancew-1,0);
-    }
-    
-    \def\ebx{0.2}\def\eby{10.7}\def\ebw{12.5}\def\ebh{9.5}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    \node[anchor=north west, align=left, font=\fontsize{10pt}{9pt}\selectfont] at (\ebx+0.1, \eby+0.6) {\textbf{三、解答题}\\};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    
-    \def\exx{1.5}\def\exy{10.2}
-    \node at (\exx,\exy) {15.（13分）};
-
-    \def\bigx{13.2}\def\bigy{27.4}\def\bigw{12.9}\def\bigh{26.8}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\ebx{13.4}\def\eby{26.8}\def\ebw{12.5}\def\ebh{25.6}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    \draw (\ebx,\eby-0.25*\ebh) -- (\ebx+\ebw,\eby-0.25*\ebh);
-    
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    
-    \def\exx{14.7}\def\exy{26.3}
-    \node at (\exx,\exy-0.25*\ebh) {16.（15分）};
-    \node at (\exx,\exy) {\textcolor{mycolor}{\textbf{（续15题）}}};
-
-    \def\bigx{26.4}\def\bigy{27.4}\def\bigw{12.9}\def\bigh{26.8}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\ebx{26.6}\def\eby{26.8}\def\ebw{12.5}\def\ebh{25.6}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    
-    \def\exx{27.9}\def\exy{26.3}
-    \node at (\exx,\exy) {17.（15分）};
-\end{tikzpicture}
-\newpage
-\begin{tikzpicture}
-    \useasboundingbox (0,0) rectangle (39.2,28.25);
-    \def\bigx{0}\def\bigy{27.4}\def\bigw{12.9}\def\bigh{26.8}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\ebx{0.2}\def\eby{26.8}\def\ebw{12.5}\def\ebh{25.6}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-
-    \def\exx{1.5}\def\exy{26.3}
-    \node at (\exx,\exy) {18.（17分）};
-
-    \def\bigx{13.2}\def\bigy{27.4}\def\bigw{12.9}\def\bigh{26.8}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\ebx{13.4}\def\eby{26.8}\def\ebw{12.5}\def\ebh{25.6}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    \draw (\ebx,\eby-0.5*\ebh) -- (\ebx+\ebw,\eby-0.5*\ebh);
-    
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    
-    \def\exx{14.7}\def\exy{26.3}
-    \node at (\exx,\exy-0.5*\ebh) {19.（17分）};
-    \node at (\exx,\exy) {\textcolor{mycolor}{\textbf{（续18题）}}};
-
-    \def\bigx{26.4}\def\bigy{27.4}\def\bigw{12.9}\def\bigh{26.8}
-    \draw[rounded corners=10pt,mycolor] (\bigx,\bigy) rectangle ++(\bigw,-\bigh);
-
-    \def\ebx{26.6}\def\eby{26.8}\def\ebw{12.5}\def\ebh{25.6}
-    \draw[black] (\ebx,\eby) rectangle ++(\ebw,-\ebh);
-    
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-\bigh+0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    \node[text=mycolor] at (\bigx+\bigw*0.5,\bigy-0.3) {\small 请在各题目的答题区域内作答，超出黑色矩形边框限定区域的答案无效};
-    
-    \def\exx{27.9}\def\exy{26.3}
-    \node at (\exx,\exy) {\textcolor{mycolor}{\textbf{（续19题）}}};
-\end{tikzpicture}
-\end{document}
-"""
-
-    # Answer-sheet figures use the same ZIP layout as the main paper.  Inject
-    # the search path for both the built-in fallback and any future file-backed
-    # answer-sheet template without rewriting every \includegraphics command.
-    if r"\graphicspath" not in content:
-        content = content.replace(
-            r"\begin{document}",
-            "\\graphicspath{{images/}{./}}\n\\begin{document}",
-            1,
-        )
-
-    # `max width` is an adjustbox key, not a native graphicx key.  Normalize a
-    # file-backed template that loads adjustbox without options, or inject the
-    # correct package declaration when the template does not load it at all.
-    adjustbox_package = re.compile(
-        r"\\usepackage(?:\[([^\]]*)\])?\{adjustbox\}"
-    )
-    adjustbox_match = adjustbox_package.search(content)
-    if adjustbox_match:
-        package_options = [
-            option.strip()
-            for option in (adjustbox_match.group(1) or "").split(",")
-            if option.strip()
-        ]
-        if "export" not in package_options:
-            package_options.append("export")
-            content = adjustbox_package.sub(
-                lambda _match: (
-                    f"\\usepackage[{','.join(package_options)}]{{adjustbox}}"
-                ),
-                content,
-                count=1,
-            )
-    else:
-        content = content.replace(
-            r"\begin{document}",
-            "\\usepackage[export]{adjustbox}\n\\begin{document}",
-            1,
-        )
-
-    lines = content.splitlines()
-    cleaned_lines = []
-    for line in lines:
-        sline = line.strip()
-        if sline.startswith("作者：") or sline.startswith("链接：") or sline.startswith("来源：") or sline.startswith("著作权归作者所有"):
-            cleaned_lines.append("% " + line)
-        else:
-            cleaned_lines.append(line)
-    tex_str = "\n".join(cleaned_lines)
-
-    paper_title = title.strip() or "2026年普通高等学校招生全国统一考试"
-    tex_str = re.sub(r'202\d年普通高等学校招生全国统一考试', paper_title, tex_str)
-
-    detailed_questions = []
     for item in questions_data:
-        q = item.get("question", {})
-        if q.get("question_type") == "detailed_answer":
-            detailed_questions.append(item)
+        question = item.get("question", {}) or {}
+        groups.setdefault(question.get("question_type", "single_choice"), []).append(item)
 
-    # Map for Q15..Q19 (full node line, template line, figure top-right anchor coordinates locked 0.7cm inside right border)
-    coords_map = [
-        ("15", r"\node at (\exx,\exy) {15.（13分）};", r"\node at (\exx,\exy) {{15.（{score}分）}};", "12.0, 10.2"),
-        ("16", r"\node at (\exx,\exy-0.25*\ebh) {16.（15分）};", r"\node at (\exx,\exy-0.25*\ebh) {{16.（{score}分）}};", "25.2, 20.0"),
-        ("17", r"\node at (\exx,\exy) {17.（15分）};", r"\node at (\exx,\exy) {{17.（{score}分）}};", "38.4, 26.3"),
-        ("18", r"\node at (\exx,\exy) {18.（17分）};", r"\node at (\exx,\exy) {{18.（{score}分）}};", "12.0, 26.3"),
-        ("19", r"\node at (\exx,\exy-0.5*\ebh) {19.（17分）};", r"\node at (\exx,\exy-0.5*\ebh) {{19.（{score}分）}};", "25.2, 13.5"),
+    paper_title = title.strip() or "考研数学模拟试题"
+    lines = [
+        r"\documentclass[UTF8,fontset=fandol,11pt]{ctexart}",
+        r"\usepackage[a4paper,margin=1.8cm]{geometry}",
+        r"\usepackage{amsmath,amssymb,graphicx,enumitem}",
+        r"\usepackage[export]{adjustbox}",
+        r"\graphicspath{{images/}{./}}",
+        r"\usepackage{fancyhdr}",
+        r"\pagestyle{fancy}",
+        r"\fancyhf{}",
+        r"\rhead{考研数学答题卡}",
+        r"\cfoot{\thepage}",
+        r"\setlength{\parindent}{0pt}",
+        r"\setlength{\parskip}{0.45em}",
+        r"\begin{document}",
+        r"\begin{center}",
+        rf"\LARGE\bfseries {paper_title}",
+        r"\par",
+        r"\large\bfseries 考研数学答题卡",
+        r"\par",
+        rf"{subtitle.strip()}",
+        r"\end{center}",
+        r"\noindent 姓名：\underline{\hspace{4cm}}\quad 考生编号：\underline{\hspace{6cm}}",
+        r"\par\medskip",
     ]
 
-    for idx in range(min(5, len(detailed_questions))):
-        item = detailed_questions[idx]
-        q = item.get("question", {})
-        score = item.get("score", 15)
-        q_num, default_line, new_line_tmpl, fig_coords = coords_map[idx]
+    if groups["single_choice"]:
+        lines.extend([
+            r"\section*{一、选择题}",
+            r"请将每题唯一正确选项填入答题卡相应位置。",
+        ])
+        for number, _item in enumerate(groups["single_choice"], 1):
+            lines.append(
+                rf"\noindent {number}.\quad A\ \underline{{\hspace{{0.7cm}}}}\quad "
+                rf"B\ \underline{{\hspace{{0.7cm}}}}\quad C\ \underline{{\hspace{{0.7cm}}}}\quad "
+                rf"D\ \underline{{\hspace{{0.7cm}}}}"
+            )
 
-        new_line = new_line_tmpl.format(score=score)
+    if groups["fill_in_blank"]:
+        lines.extend([
+            r"\section*{二、填空题}",
+            r"请将每题答案填写在横线上。",
+        ])
+        for number, _item in enumerate(groups["fill_in_blank"], 1):
+            lines.append(rf"\noindent {number}.\quad \underline{{\hspace{{10cm}}}}")
 
-        # Check for figures
-        q_content = q.get("content", "")
-        tikz_code = q.get("tikz_code", "").strip()
-        full_content = q_content + ("\n" + tikz_code if tikz_code else "")
-        fig_code = extract_figures_for_answer_sheet(full_content)
-        if fig_code:
-            fig_node = f"\\node[anchor=north east, inner sep=0pt, outer sep=0pt] at ({fig_coords}) {{\\resizebox{{4.2cm}}{{!}}{{{fig_code}}}}};"
-            replacement = f"{new_line}\n    {fig_node}"
-        else:
-            replacement = new_line
+    if groups["detailed_answer"]:
+        lines.extend([
+            r"\section*{三、解答题}",
+            r"请写出必要的文字说明、证明过程或演算步骤。",
+        ])
+        for number, item in enumerate(groups["detailed_answer"], 1):
+            score = item.get("score", 0)
+            lines.append(rf"\noindent {number}.\quad（{score}分）")
+            figure_code = extract_figures_for_answer_sheet(
+                (item.get("question", {}) or {}).get("content", "")
+            )
+            if figure_code:
+                lines.append(r"\begin{center}")
+                lines.append(rf"\resizebox{{0.35\linewidth}}{{!}}{{{figure_code}}}")
+                lines.append(r"\end{center}")
+            try:
+                height = max(2.0, min(12.0, float(item.get("solution_space") or 4.0)))
+            except (TypeError, ValueError):
+                height = 4.0
+            lines.append(rf"\vspace*{{{height:.1f}cm}}")
+            lines.append(r"\hrule")
+            lines.append(r"\medskip")
 
-        tex_str = tex_str.replace(default_line, replacement)
+    lines.append(r"\end{document}")
+    return "\n".join(lines) + "\n"
 
-    return tex_str
 
 def create_tex_zip_package(title: str, tex_content: str, ans_tex_content: str, image_paths: list, answer_sheet_tex: str = None) -> bytes:
     """

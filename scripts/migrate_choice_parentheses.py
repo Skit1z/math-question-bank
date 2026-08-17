@@ -25,7 +25,7 @@ def run_migration():
     try:
         questions = session.query(Question).all()
         for q in questions:
-            if q.question_type in ["single_choice", "multi_choice"] or (q.content and r"\begin{choices}" in q.content):
+            if q.question_type == "single_choice" or (q.content and r"\begin{choices}" in q.content):
                 content = q.content or ""
                 if r"\begin{choices}" in content:
                     parts = content.split(r"\begin{choices}", 1)

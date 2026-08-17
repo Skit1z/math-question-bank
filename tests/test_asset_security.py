@@ -194,7 +194,7 @@ def test_question_image_paths_reject_traversal_and_legacy_delete_never_unlinks_i
     payload = {
         "content": "安全路径测试题",
         "question_type": "single_choice",
-        "difficulty": "medium",
+        "difficulty": "standard",
         "image_paths": json.dumps([unsafe_reference]),
     }
     with patch("main.UPLOAD_DIR", str(upload_dir)), patch(
@@ -204,7 +204,7 @@ def test_question_image_paths_reject_traversal_and_legacy_delete_never_unlinks_i
     assert rejected.status_code == 400
     assert outside.exists()
 
-    legacy = Question(content="旧数据", question_type="single_choice", difficulty="medium")
+    legacy = Question(content="旧题目", question_type="single_choice", difficulty="standard")
     legacy.image_paths = [unsafe_reference]
     db_session.add(legacy)
     db_session.commit()

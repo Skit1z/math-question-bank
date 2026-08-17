@@ -34,17 +34,10 @@ MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 TYPE_LABELS = {
     "single_choice": "选择题",
-    "multi_choice": "多选题",
     "fill_in_blank": "填空题",
     "detailed_answer": "解答题",
 }
-TYPE_ORDER = ("single_choice", "multi_choice", "fill_in_blank", "detailed_answer")
-EXAM_19_STARTS = {
-    "single_choice": 1,
-    "multi_choice": 9,
-    "fill_in_blank": 12,
-    "detailed_answer": 15,
-}
+TYPE_ORDER = ("single_choice", "fill_in_blank", "detailed_answer")
 IMAGE_PATTERN = re.compile(r"!\[.*?\]\(([^)]+)\)")
 CHOICES_PATTERN = re.compile(
     r"\\begin\{choices\}([\s\S]*?)\\end\{choices\}", re.IGNORECASE
@@ -698,7 +691,7 @@ class WordExamBuilder:
         show_secret: bool,
         show_notice: bool,
     ) -> None:
-        is_exam_style = paper_type in {"exam", "exam_19"}
+        is_exam_style = paper_type == "kaoyan"
         if show_secret and is_exam_style:
             p = self.doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -735,7 +728,7 @@ class WordExamBuilder:
             meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
             meta.paragraph_format.space_before = Pt(4)
             meta.paragraph_format.space_after = Pt(6)
-            run = meta.add_run(f"本试卷共 {total_count} 题。全卷满分 {total_score} 分。考试用时 120 分钟。")
+            run = meta.add_run(f"本试卷共 {total_count} 题。全卷满分 {total_score} 分。考试用时 180 分钟。")
             _set_run_font(run, 10.5, cjk_font=CJK_BODY_FONT)
 
             if show_notice:
@@ -748,9 +741,9 @@ class WordExamBuilder:
                 _set_run_font(run, 10.5, bold=True, cjk_font=CJK_HEADING_FONT)
 
                 notices = [
-                    "1. 答卷前，考生务必将自己的姓名、考生号、考场号、座位号填写在答题卡上。",
-                    "2. 回答选择题时，选出每小题答案后，用铅笔把答题卡上对应题目的答案标号涂黑，如需改动，用橡皮擦干净后，再选涂其他答案标号。回答非选择题时，将答案写在答题卡上。写在本试卷上无效。",
-                    "3. 考试结束后，将本试卷和答题卡一并交回。",
+                    "1. 答卷前，请按要求填写姓名、考生编号等信息。",
+                    "2. 选择题请将所选答案填入答题卡相应位置；非选择题请在答题区域内作答。",
+                    "3. 请保持答题卡整洁，考试结束后按监考人员要求交回试卷和答题卡。",
                 ]
                 for idx, line in enumerate(notices):
                     p = self.doc.add_paragraph()
@@ -776,7 +769,6 @@ class WordExamBuilder:
         p.paragraph_format.keep_with_next = True
         details = {
             "single_choice": "在每小题给出的四个选项中，只有一项符合题目要求。",
-            "multi_choice": "在每小题给出的四个选项中，有多项符合题目要求；有选错项不得分。",
             "detailed_answer": "解答应写出文字说明、证明过程或演算步骤。",
         }
         if paper_type != "quiz" and q_type in details:
@@ -982,7 +974,7 @@ class WordExamBuilder:
     def save_bytes(self) -> bytes:
         properties = self.doc.core_properties
         properties.title = "MathBank 可编辑 Word 试卷"
-        properties.subject = "高中数学试卷"
+        properties.subject = "考研数学试卷"
         properties.author = "MathBank"
         properties.keywords = "数学, 试卷, OMML, 可编辑公式"
         output = BytesIO()
@@ -1092,7 +1084,7 @@ def build_word_document(
 ) -> tuple[bytes, dict]:
     """Build an A4 editable DOCX and return bytes plus conversion diagnostics."""
     prepared = [_prepare_question(item, uploads_dir) for item in questions_data]
-    diagnostics = WordExportDiagnostics(answer_card_omitted=(paper_type == "exam_19"))
+    diagnostics = WordExportDiagnostics(answer_card_omitted=False)
     if diagnostics.answer_card_omitted:
         diagnostics.warnings.append("Word 版本仅导出试卷正文，不包含答题卡。")
 
@@ -1133,13 +1125,12 @@ def build_word_document(
             continue
         section_index += 1
         builder.add_section_heading(q_type, items, paper_type, section_index)
-        current = EXAM_19_STARTS[q_type] if paper_type == "exam_19" else next_number
+        current = next_number
         for item in items:
             number_by_object[id(item)] = current
             builder.add_question(item, current)
             current += 1
-        if paper_type != "exam_19":
-            next_number = current
+        next_number = current
 
     if include_answers:
         ordered_numbers = [number_by_object.get(id(item), index + 1) for index, item in enumerate(prepared)]

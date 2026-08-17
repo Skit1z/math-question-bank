@@ -342,7 +342,7 @@ def _tiny_png() -> bytes:
 def test_docx_extract_markdown_with_tables():
     """测试 docx 提取段落与表格转换为 Markdown 和 LaTeX tabular"""
     docx_bytes = _create_mock_docx(
-        paragraphs=["高中数学模拟试卷", "1. 已知集合 $A = {1, 2}$，求子集个数。"],
+        paragraphs=["考研数学模拟试卷", "1. 已知集合 $A = {1, 2}$，求子集个数。"],
         tables=[
             [["类别", "数量"], ["甲", "10"], ["乙", "20"]]
         ]
@@ -350,7 +350,7 @@ def test_docx_extract_markdown_with_tables():
 
     res = extract_docx_markdown(docx_bytes)
     assert res["success"] is True
-    assert "高中数学模拟试卷" in res["markdown"]
+    assert "考研数学模拟试卷" in res["markdown"]
     assert "\\begin{tabular}" in res["markdown"]
     assert "类别 & 数量 \\\\" in res["markdown"]
 

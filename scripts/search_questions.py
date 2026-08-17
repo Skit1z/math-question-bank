@@ -34,7 +34,7 @@ def search_questions(query=None, qtype=None, difficulty=None, limit=50, with_ans
 
     # Build SQL dynamically
     base_query = """
-        SELECT id, content, question_type, category_compulsory, category_chapter, category_knowledge, difficulty, source, answer_markdown, review, association_group_id, tags
+        SELECT id, content, question_type, exam_track, subject, topic, difficulty, source, answer_markdown, review, association_group_id, tags
         FROM questions
         WHERE 1=1
     """
@@ -53,9 +53,9 @@ def search_questions(query=None, qtype=None, difficulty=None, limit=50, with_ans
     if query:
         base_query += """
             AND (
-                category_compulsory LIKE ? OR
-                category_chapter LIKE ? OR
-                category_knowledge LIKE ? OR
+                exam_track LIKE ? OR
+                subject LIKE ? OR
+                topic LIKE ? OR
                 content LIKE ? OR
                 source LIKE ? OR
                 tags LIKE ?
@@ -89,7 +89,6 @@ def search_questions(query=None, qtype=None, difficulty=None, limit=50, with_ans
 def format_type(t):
     mapping = {
         "single_choice": "单选题",
-        "multi_choice": "多选题",
         "fill_in_blank": "填空题",
         "detailed_answer": "解答题"
     }
@@ -97,9 +96,10 @@ def format_type(t):
 
 def format_difficulty(d):
     mapping = {
-        "easy": "简单",
-        "medium": "中等",
-        "hard": "困难"
+        "basic": "基础巩固",
+        "standard": "真题常规",
+        "comprehensive": "综合提升",
+        "advanced": "压轴拔高",
     }
     return mapping.get(d, d)
 
@@ -107,9 +107,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Fuzzy query tool to fetch mathematical questions from local SQLite DB for AI referencing."
     )
-    parser.add_argument("-q", "--query", type=str, help="Search term (fuzzy matches compulsory, chapter, knowledge, content, etc.)")
-    parser.add_argument("-t", "--type", type=str, choices=["single_choice", "multi_choice", "fill_in_blank", "detailed_answer"], help="Filter by question type")
-    parser.add_argument("-d", "--difficulty", type=str, choices=["easy", "medium", "hard"], help="Filter by difficulty")
+    parser.add_argument("-q", "--query", type=str, help="Search term (fuzzy matches exam track, subject, topic, content, etc.)")
+    parser.add_argument("-t", "--type", type=str, choices=["single_choice", "fill_in_blank", "detailed_answer"], help="Filter by question type")
+    parser.add_argument("-d", "--difficulty", type=str, choices=["basic", "standard", "comprehensive", "advanced"], help="Filter by difficulty")
     parser.add_argument("-n", "--limit", type=int, default=50, help="Max number of questions to return. Use -1 for no limit (default: 50)")
     parser.add_argument("-a", "--with-answers", action="store_true", help="Include answers and explanations in the output")
     parser.add_argument("-r", "--related-to", type=int, help="Fetch all questions associated/related to the given Question ID")
@@ -139,11 +139,11 @@ def main():
     print(f"{title_msg}\n")
     
     for idx, row in enumerate(results, 1):
-        q_id, content, question_type, compulsory, chapter, knowledge, difficulty, source, answer, review, group_id, tags = row
+        q_id, content, question_type, exam_track, subject, topic, difficulty, source, answer, review, group_id, tags = row
         
         print(f"### 题目 {idx} (ID: #{q_id})")
-        print(f"- **分类学段**: `{compulsory or '未分类'}`")
-        print(f"- **章节知识点**: `{chapter or '无'}` -> `{knowledge or '无'}`")
+        print(f"- **考试方向**: `{exam_track or '未定'}`")
+        print(f"- **科目/考点**: `{subject or '无'}` -> `{topic or '无'}`")
         print(f"- **题型/难度**: {format_type(question_type)} | {format_difficulty(difficulty)}")
         if source:
             print(f"- **来源**: *{source}*")

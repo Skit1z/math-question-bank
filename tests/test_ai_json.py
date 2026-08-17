@@ -74,7 +74,7 @@ def test_parse_ai_json_rejects_structurally_invalid_output():
 
 
 def test_paper_prompts_require_valid_json_escaping():
-    curriculum = {"必修一": {"1. 集合": []}}
+    curriculum = {"数学一": {"高等数学": ["函数、极限与连续"]}}
     prompts = (
         build_pdf_parse_system_prompt(curriculum, False),
         build_import_parse_system_prompt(curriculum),
@@ -88,8 +88,8 @@ def test_paper_prompts_require_valid_json_escaping():
 
 def test_classification_prompts_prefer_later_curriculum_module():
     curriculum = {
-        "必修一": {"5. 三角函数": []},
-        "必修二": {"6. 平面向量及其应用": []},
+        "数学一": {"高等数学": ["函数、极限与连续"]},
+        "数学二": {"线性代数": ["矩阵"]},
     }
     prompts = (
         build_classification_system_prompt(curriculum),
@@ -99,19 +99,21 @@ def test_classification_prompts_prefer_later_curriculum_module():
 
     for prompt in prompts:
         assert "选择位置最靠后的模块作为最终分类" in prompt
-        assert "先比较学段从上到下的顺序" in prompt
-        assert "若属于同一学段，再比较章节从前到后的顺序" in prompt
-        assert "必修二的“平面向量及其应用”" in prompt
-        assert "仅作为背景条件被提及" in prompt
+        assert "先比较考试方向从上到下的顺序" in prompt
+        assert "若属于同一考试方向，再比较科目从前到后的顺序" in prompt
+        assert "数学二" in prompt
+        assert "线性代数" in prompt
+        assert "仅作为背景而不参与解题" in prompt
 
 
 def test_single_question_classification_prompt_requests_only_coarse_question_form():
-    prompt = build_classification_system_prompt({"必修一": {"1. 集合": []}})
+    prompt = build_classification_system_prompt({"数学一": {"高等数学": ["函数、极限与连续"]}})
 
-    assert '"compulsory"' in prompt
-    assert '"chapter"' in prompt
+    assert '"exam_track"' in prompt
+    assert '"subject"' in prompt
+    assert '"topic"' in prompt
     assert '"question_form"' in prompt
     assert "question_type" not in prompt
-    assert "包含且仅包含以下三个 key" in prompt
-    assert "任何选择题一律为 `choice`" in prompt
-    assert "严禁输出或猜测 `single_choice`、`multi_choice`" in prompt
+    assert "只能包含 exam_track、subject、topic、question_form 四个 key" in prompt
+    assert "single_choice" in prompt
+    assert "multi_choice" not in prompt

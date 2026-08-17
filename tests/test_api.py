@@ -35,10 +35,10 @@ def test_api_questions_crud(client):
     payload = {
         "content": "测试API题目干 $a^2+b^2=c^2$",
         "question_type": "single_choice",
-        "category_compulsory": "必修一",
-        "category_chapter": "第一章",
-        "category_knowledge": "勾股定理",
-        "difficulty": "medium",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "函数、极限与连续",
+        "difficulty": "standard",
         "source": "单元测试",
         "answer_markdown": "答案解析内容",
         "review": "评述内容",
@@ -54,7 +54,7 @@ def test_api_questions_crud(client):
     assert created_q["id"] is not None
     assert created_q["content"] == payload["content"]
     assert created_q["question_type"] == "single_choice"
-    assert created_q["category_compulsory"] == "必修一"
+    assert created_q["exam_track"] == "数学一"
     
     question_id = created_q["id"]
 
@@ -67,7 +67,7 @@ def test_api_questions_crud(client):
     assert fetched_q["review"] == "评述内容"
 
     # 4. Filter list of questions
-    response = client.get("/api/questions?compulsory=必修一&difficulty=medium")
+    response = client.get("/api/questions?exam_track=数学一&difficulty=standard")
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["id"] == question_id
@@ -75,14 +75,14 @@ def test_api_questions_crud(client):
     assert "answer_markdown" not in response.json()[0]
 
     # Filter with mismatching criteria
-    response = client.get("/api/questions?compulsory=必修一&difficulty=hard")
+    response = client.get("/api/questions?exam_track=数学一&difficulty=advanced")
     assert response.status_code == 200
     assert len(response.json()) == 0
 
     # 5. Update the question
     update_payload = payload.copy()
     update_payload["content"] = "更新后的API题目干"
-    update_payload["difficulty"] = "challenge"
+    update_payload["difficulty"] = "comprehensive"
     
     response = client.put(f"/api/questions/{question_id}", data=update_payload, headers=headers)
     assert response.status_code == 200
@@ -91,7 +91,7 @@ def test_api_questions_crud(client):
     updated_q = res_data_update["question"]
     assert updated_q["id"] == question_id
     assert updated_q["content"] == "更新后的API题目干"
-    assert updated_q["difficulty"] == "challenge"
+    assert updated_q["difficulty"] == "comprehensive"
 
     # 6. Delete the question
     response = client.delete(f"/api/questions/{question_id}", headers=headers)
@@ -153,8 +153,9 @@ def test_ai_classify_returns_coarse_form_without_question_type():
                 "message": {
                     "content": json.dumps(
                         {
-                            "compulsory": "必修一",
-                            "chapter": "1. 集合",
+                            "exam_track": "数学一",
+                            "subject": "高等数学",
+                            "topic": "函数、极限与连续",
                             "question_form": "single_choice",
                         },
                         ensure_ascii=False,
@@ -167,7 +168,7 @@ def test_ai_classify_returns_coarse_form_without_question_type():
     with patch("main.resolve_text_provider", return_value=provider), patch(
         "main.post_chat_completion", return_value=response
     ), patch(
-        "main.get_current_curriculum", return_value={"必修一": {"1. 集合": []}}
+        "main.get_current_curriculum", return_value={"数学一": {"高等数学": ["函数、极限与连续"]}}
     ):
         from main import ai_classify
 
@@ -179,14 +180,15 @@ def test_ai_classify_returns_coarse_form_without_question_type():
 
     assert ai_result == {
         "status": "success",
-        "compulsory": "必修一",
-        "chapter": "1. 集合",
-        "question_form": "choice",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "函数、极限与连续",
+        "question_form": "single_choice",
         "question_form_source": "ai",
     }
     assert fillin_result["question_form"] == "fill_in_blank"
     assert fillin_result["question_form_source"] == "structure"
-    assert choices_result["question_form"] == "choice"
+    assert choices_result["question_form"] == "single_choice"
     assert choices_result["question_form_source"] == "structure"
     assert "question_type" not in ai_result
     assert "question_type" not in fillin_result
@@ -200,9 +202,10 @@ def test_api_stats(client):
     stats = response.json()
     assert stats["status"] == "success"
     assert "total_count" in stats
-    assert "easy_error_count" in stats
-    assert "challenge_count" in stats
-    assert "qiangji_count" in stats
+    assert "basic_count" in stats
+    assert "standard_count" in stats
+    assert "comprehensive_count" in stats
+    assert "advanced_count" in stats
     assert stats["total_count"] == 0
 
 
@@ -211,14 +214,14 @@ def test_api_search_by_review(client):
     payload = {
         "content": "这是一道特殊的代数题",
         "question_type": "single_choice",
-        "category_compulsory": "必修一",
-        "category_chapter": "第一章",
-        "category_knowledge": "勾股定理",
-        "difficulty": "medium",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "函数、极限与连续",
+        "difficulty": "standard",
         "source": "单元测试",
         "answer_markdown": "答案解析内容",
         "review": "这是名师特别推荐的精品评析",
-        "tags": "高一,期中,真题",
+        "tags": "极限,真题,错题",
         "related_question_id": "",
         "image_paths": "[]"
     }
@@ -241,11 +244,11 @@ def test_api_search_by_review(client):
         assert response.json()[0]["id"] == q_id
 
         # Search for something in tags
-        response = client.get("/api/questions?q=期中")
+        response = client.get("/api/questions?q=错题")
         assert response.status_code == 200
         assert len(response.json()) == 1
         assert response.json()[0]["id"] == q_id
-        assert response.json()[0]["tags"] == "高一,期中,真题"
+        assert response.json()[0]["tags"] == "极限,真题,错题"
 
         # Search for non-existent text
         response = client.get("/api/questions?q=不存在的关键字")
@@ -272,9 +275,10 @@ def test_api_metadata_config(client):
     try:
         # 2. POST custom config (Forbidden without token)
         test_payload = {
-            "question_types": [{"value": "test_type", "label": "测试题型"}],
-            "difficulties": [{"value": "test_diff", "label": "测试难度", "color": "color-test"}],
-            "curriculum": {"测试学段": {"测试章节": ["测试小节"]}}
+            **original_config,
+            "question_types": [{"value": "detailed_answer", "label": "解答题"}],
+            "difficulties": [{"value": "advanced", "label": "压轴拔高", "color": "color-test"}],
+            "curriculum": {"数学一": {"高等数学": ["一元函数微分学"]}},
         }
         response = client.post("/api/config/metadata", json=test_payload)
         assert response.status_code == 403
@@ -288,15 +292,15 @@ def test_api_metadata_config(client):
         response = client.get("/api/config/metadata")
         assert response.status_code == 200
         new_data = response.json()
-        assert new_data["question_types"][0]["value"] == "test_type"
-        assert new_data["curriculum"]["测试学段"]["测试章节"] == ["测试小节"]
+        assert new_data["question_types"][0]["value"] == "detailed_answer"
+        assert new_data["curriculum"]["数学一"]["高等数学"] == ["一元函数微分学"]
     finally:
         # 5. Restore original config
         client.post("/api/config/metadata", json=original_config, headers=headers)
 
 
 def test_curriculum_preset_api(client):
-    for version in ("A", "B", "S", "H"):
+    for version in ("K",):
         response = client.get(f"/api/config/curriculum-presets/{version}")
         assert response.status_code == 200
         data = response.json()
@@ -368,7 +372,7 @@ def test_api_ai_solve_with_ocr(client):
             args, kwargs = mock_post.call_args
             sent_data = kwargs["json"]
             user_msg = sent_data["messages"][1]["content"]
-            assert "已有的 OCR 识别解析/草稿内容如下" in user_msg
+            assert "已有 OCR 解析草稿" in user_msg
             assert "OCR识别的草稿" in user_msg
             assert "请简化解答步骤" in user_msg
             assert "已知 $f(x) = x^2$" in user_msg
@@ -511,10 +515,10 @@ def test_figure_align_api(client):
     payload = {
         "content": "插图排版测试题目 $x+y$",
         "question_type": "single_choice",
-        "category_compulsory": "必修一",
-        "category_chapter": "集合",
-        "category_knowledge": "集合的含义",
-        "difficulty": "easy",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "一元函数微分学",
+        "difficulty": "basic",
         "source": "单元测试",
         "answer_markdown": "答案",
         "review": "",

@@ -11,8 +11,8 @@ from mathbank.question_types import (
     (
         (r"答案为\fillin", "fill_in_blank"),
         (r"答案为\FILLIN", "fill_in_blank"),
-        (r"\begin{choices}\item A\end{choices}", "choice"),
-        (r"\begin { choices }\item A\end{choices}", "choice"),
+        (r"\begin{choices}\item A\end{choices}", "single_choice"),
+        (r"\begin { choices }\item A\end{choices}", "single_choice"),
         ("请证明该结论", None),
     ),
 )
@@ -22,22 +22,18 @@ def test_structured_question_form_detection(content, expected):
 
 def test_choices_environment_takes_precedence_over_blank_inside_an_option():
     content = r"\begin{choices}\item \fillin\item 2\end{choices}"
-
-    assert detect_structured_question_form(content) == "choice"
+    assert detect_structured_question_form(content) == "single_choice"
 
 
 @pytest.mark.parametrize(
     ("model_value", "expected"),
     (
-        ("single_choice", "choice"),
-        ("multi_choice", "choice"),
-        ("单选题", "choice"),
-        ("多选题", "choice"),
+        ("single_choice", "single_choice"),
         ("fill_in_blank", "fill_in_blank"),
         ("detailed_answer", "detailed_answer"),
         ("unexpected", "unknown"),
         (None, "unknown"),
     ),
 )
-def test_ai_question_form_never_preserves_single_or_multi_choice(model_value, expected):
+def test_ai_question_form_uses_only_graduate_exam_forms(model_value, expected):
     assert normalize_ai_question_form(model_value) == expected

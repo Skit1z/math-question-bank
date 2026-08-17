@@ -105,7 +105,7 @@ function showToast() {{}}
 function fetch(url) {{
   const data = url.endsWith('/metadata')
     ? {{ question_types: [], difficulties: [], curriculum: {{}} }}
-    : {{ high_school: {{}} }};
+    : {{ "数学一": {{}} }};
   return Promise.resolve({{ ok: true, json: () => Promise.resolve(data) }});
 }}
 {helper_source}
@@ -711,11 +711,11 @@ const values = {{
   editAnswerMarkdown: 'saved answer',
   editReview: 'saved review',
   editQType: 'single_choice',
-  editDifficulty: 'easy_error',
+  editDifficulty: 'standard',
   editSource: 'saved source',
-  editCompulsory: 'high_school',
-  editChapter: 'chapter 1',
-  editKnowledge: 'section 1',
+  editExamTrack: '数学一',
+  editSubject: '高等数学',
+  editTopic: '函数、极限与连续',
   editTags: 'saved tag'
 }};
 const elements = Object.fromEntries(
@@ -730,11 +730,11 @@ const requestSnapshot = Object.freeze({{
   answer_markdown: 'saved answer',
   review: 'saved review',
   question_type: 'single_choice',
-  difficulty: 'easy_error',
+  difficulty: 'standard',
   source: 'saved source',
-  category_compulsory: 'high_school',
-  category_chapter: 'chapter 1',
-  category_knowledge: 'section 1',
+  exam_track: '数学一',
+  subject: '高等数学',
+  topic: '函数、极限与连续',
   image_paths: JSON.stringify(['/static/uploads/saved.png']),
   tags: 'saved tag'
 }});
@@ -887,11 +887,11 @@ function createCard(content) {{
     '.card-content-textarea': {{ value: content }},
     '.card-answer-textarea': {{ value: '' }},
     '.card-qtype': {{ value: 'single_choice' }},
-    '.card-difficulty': {{ value: 'easy_error' }},
+    '.card-difficulty': {{ value: 'standard' }},
     '.card-source': {{ value: '' }},
-    '.card-compulsory': {{ value: 'high_school' }},
-    '.card-chapter': {{ value: 'chapter_1' }},
-    '.card-knowledge': {{ value: 'section_1' }},
+    '.card-exam-track': {{ value: '数学一' }},
+    '.card-subject': {{ value: '高等数学' }},
+    '.card-topic': {{ value: '函数、极限与连续' }},
     '.card-save-btn': {{ disabled: false, innerHTML: '', className: '' }},
     '.card-status-badge': {{ textContent: '', className: '' }},
     '.card-select-checkbox': {{

@@ -85,7 +85,7 @@ def test_empty_per_page_result_keeps_legacy_text_path():
         extract_pages_markdown=MagicMock(return_value=SimpleNamespace(pages=[])),
         process_pdf=MagicMock(return_value=SimpleNamespace(
             pdf_type="TextBased",
-            markdown="高中数学试卷\n1. 已知函数 f(x)=x^2，请求出它在给定区间上的最小值。",
+            markdown="考研数学试卷\n1. 已知函数 f(x)=x^2，请求出它在给定区间上的最小值。",
             has_encoding_issues=False,
             pages_needing_ocr=[],
             confidence=0.99,
@@ -111,7 +111,7 @@ def test_cross_page_text_is_merged_without_question_terminator():
 
 
 def test_pdf_parse_system_prompt_includes_formula_and_cross_page_rules():
-    prompt = build_pdf_parse_system_prompt({"必修一": {"集合": []}}, False)
+    prompt = build_pdf_parse_system_prompt({"数学一": {"高等数学": ["函数、极限与连续"]}}, False)
     assert "\\sqrt{...}" in prompt
     assert "\\frac{...}{...}" in prompt
     assert "\\fillin" in prompt

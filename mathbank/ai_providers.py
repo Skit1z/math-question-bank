@@ -316,6 +316,20 @@ def resolve_ocr_provider(
     environment = os.environ if environ is None else environ
     normalized_engine = str(engine or "siliconflow").strip().lower()
 
+    if normalized_engine in {"paddleocr", "paddle_ocr", "paddle"}:
+        return MultimodalProviderConfig(
+            provider_code="paddleocr",
+            provider_label="PaddleOCR 官方 API",
+            api_key_env="PADDLEOCR_ACCESS_TOKEN",
+            api_key=environment.get("PADDLEOCR_ACCESS_TOKEN"),
+            api_base=environment.get("PADDLEOCR_BASE_URL")
+            or "https://paddleocr.aistudio-app.com",
+            model_name=environment.get("PADDLEOCR_MODEL") or "PP-OCRv6",
+            reasoning_effort=None,
+            supports_image_input=True,
+            raw_config=normalized_engine,
+        )
+
     if normalized_engine in {"ali_bailian", "bailian"}:
         return MultimodalProviderConfig(
             provider_code="bailian",
@@ -399,7 +413,9 @@ def resolve_ocr_fallbacks(
 
     environment = os.environ if environ is None else environ
     preferred = str(preferred_engine or "siliconflow").strip().lower()
-    if preferred == "siliconflow":
+    if preferred in {"paddleocr", "paddle_ocr", "paddle"}:
+        engine_order = ["paddleocr", "siliconflow", "ali_bailian", "zhongzhan_gpt"]
+    elif preferred == "siliconflow":
         engine_order = ["siliconflow", "ali_bailian", "zhongzhan_gpt"]
     elif preferred in {"ali_bailian", "bailian"}:
         engine_order = ["ali_bailian", "siliconflow", "zhongzhan_gpt"]

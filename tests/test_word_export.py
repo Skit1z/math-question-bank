@@ -65,7 +65,7 @@ def test_word_export_uses_native_omml_when_pandoc_is_available():
     data, diagnostics = build_word_document(
         "可编辑 Word 测试卷",
         "OMML 公式验证",
-        "exam",
+        "kaoyan",
         _sample_questions(),
         include_answers=True,
     )
@@ -125,7 +125,7 @@ def test_word_export_uses_native_omml_when_pandoc_is_available():
     assert "公式待核对" not in xml.decode("utf-8")
 
 
-def test_word_export_contains_choice_grid_and_marks_exam_19_answer_card_omission(monkeypatch):
+def test_word_export_contains_choice_grid_without_legacy_answer_card_warning(monkeypatch):
     sample_omml = (
         b'<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
         b"<m:r><m:t>x</m:t></m:r></m:oMath>"
@@ -136,14 +136,14 @@ def test_word_export_contains_choice_grid_and_marks_exam_19_answer_card_omission
         lambda self, formulas: {formula: sample_omml for formula in formulas},
     )
     data, diagnostics = build_word_document(
-        "19题试卷",
+        "考研数学试卷",
         "",
-        "exam_19",
+        "kaoyan",
         _sample_questions(),
     )
     xml = _document_xml(data).decode("utf-8")
-    assert diagnostics["answer_card_omitted"] is True
-    assert "不包含答题卡" in "".join(diagnostics["warnings"])
+    assert diagnostics["answer_card_omitted"] is False
+    assert "不包含答题卡" not in "".join(diagnostics["warnings"])
     assert xml.count("<w:tbl") >= 2
     assert "A." in xml and "D." in xml
 
@@ -158,7 +158,7 @@ def test_word_export_uses_exam_typography_and_one_inch_margins(monkeypatch):
         "convert_many",
         lambda self, formulas: {formula: sample_omml for formula in formulas},
     )
-    data, _ = build_word_document("字体测试卷", "副标题", "exam", _sample_questions())
+    data, _ = build_word_document("字体测试卷", "副标题", "kaoyan", _sample_questions())
     styles = etree.fromstring(_package_part(data, "word/styles.xml"))
     settings = etree.fromstring(_package_part(data, "word/settings.xml"))
     document = etree.fromstring(_document_xml(data))
@@ -226,10 +226,10 @@ def test_word_export_api_returns_zip_bundle(client):
                 r"\end{choices}"
             ),
             "question_type": "single_choice",
-            "category_compulsory": "必修第一册",
-            "category_chapter": "函数",
-            "category_knowledge": "函数值",
-            "difficulty": "easy",
+            "exam_track": "数学一",
+            "subject": "高等数学",
+            "topic": "一元函数微分学",
+            "difficulty": "standard",
             "source": "Word 导出接口测试",
             "answer_markdown": r"【答案】$4$。\n\n【解析】由 $f(x)=x^2$ 得 $f(2)=2^2=4$。",
             "review": "",
@@ -246,7 +246,7 @@ def test_word_export_api_returns_zip_bundle(client):
         json={
             "title": "接口测试卷",
             "subtitle": "",
-            "paper_type": "exam",
+            "paper_type": "kaoyan",
             "questions": [{"id": question_id, "score": 5}],
         },
         headers=headers,
@@ -294,10 +294,10 @@ def test_word_export_api_supports_single_docx(client):
         data={
             "content": r"已知集合 $A=\{1,2\}$，求 $A$ 的子集个数。",
             "question_type": "fill_in_blank",
-            "category_compulsory": "必修第一册",
-            "category_chapter": "集合",
-            "category_knowledge": "子集",
-            "difficulty": "easy",
+            "exam_track": "数学一",
+            "subject": "线性代数",
+            "topic": "向量",
+            "difficulty": "basic",
             "source": "单Docx测试",
             "answer_markdown": r"$4$ 个。",
             "review": "",
@@ -313,7 +313,7 @@ def test_word_export_api_supports_single_docx(client):
         "/api/paper/export/word",
         json={
             "title": "单题试卷",
-            "paper_type": "exam",
+            "paper_type": "kaoyan",
             "as_single_docx": True,
             "include_answers": True,
             "questions": [{"id": question_id, "score": 5}],
@@ -333,7 +333,7 @@ def test_word_export_api_supports_single_docx(client):
 def test_word_export_api_rejects_empty_paper(client):
     response = client.post(
         "/api/paper/export/word",
-        json={"title": "空试卷", "paper_type": "exam", "questions": []},
+        json={"title": "空试卷", "paper_type": "kaoyan", "questions": []},
         headers={"X-Local-Token": LOCAL_TOKEN},
     )
     assert response.status_code == 400
@@ -342,9 +342,9 @@ def test_word_export_api_rejects_empty_paper(client):
 
 def test_word_export_title_block_matches_exam_layout():
     data, _ = build_word_document(
-        "2026高中数学期末考试",
+        "2026年考研数学模拟试题",
         "",
-        "exam",
+        "kaoyan",
         _sample_questions(),
         show_secret=True,
         show_notice=True,
@@ -363,15 +363,15 @@ def test_word_export_title_block_matches_exam_layout():
     assert secret_jc == ["left"] or not secret_jc
 
     # Title, Subject, Meta info
-    assert "2026高中数学期末考试" in p_texts[1]
+    assert "2026年考研数学模拟试题" in p_texts[1]
     assert "数  学" in p_texts[2]
-    assert "本试卷共 2 题。全卷满分 10 分。考试用时 120 分钟。" in "".join(p_texts)
+    assert "本试卷共 2 题。全卷满分 10 分。考试用时 180 分钟。" in "".join(p_texts)
 
     # Notices
     assert "注意事项：" in "".join(p_texts)
-    assert "1. 答卷前，考生务必将自己的姓名、考生号、考场号、座位号填写在答题卡上。" in "".join(p_texts)
-    assert "2. 回答选择题时，选出每小题答案后，用铅笔把答题卡上对应题目的答案标号涂黑" in "".join(p_texts)
-    assert "3. 考试结束后，将本试卷和答题卡一并交回。" in "".join(p_texts)
+    assert "1. 答卷前，请按要求填写姓名、考生编号等信息。" in "".join(p_texts)
+    assert "2. 选择题请将所选答案填入答题卡相应位置" in "".join(p_texts)
+    assert "3. 请保持答题卡整洁，考试结束后按监考人员要求交回试卷和答题卡。" in "".join(p_texts)
 
 
 def test_word_export_supports_toggling_secret_and_notice():
@@ -405,7 +405,7 @@ def test_word_document_with_answers_and_omml(monkeypatch):
     data, diagnostics = build_word_document(
         "期末测试卷",
         "含解析版",
-        "exam",
+        "kaoyan",
         _sample_questions(),
         include_answers=True,
     )
@@ -431,4 +431,3 @@ def test_create_word_bundle_zip():
         assert archive.namelist() == ["高一数学月考.docx", "高一数学月考_含答案与解析.docx"]
         assert archive.read("高一数学月考.docx") == main_bytes
         assert archive.read("高一数学月考_含答案与解析.docx") == ans_bytes
-

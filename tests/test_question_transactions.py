@@ -12,10 +12,10 @@ def _payload(**overrides):
     payload = {
         "content": "事务测试题",
         "question_type": "single_choice",
-        "category_compulsory": "必修一",
-        "category_chapter": "第一章",
-        "category_knowledge": "集合",
-        "difficulty": "medium",
+        "exam_track": "数学一",
+        "subject": "高等数学",
+        "topic": "函数、极限与连续",
+        "difficulty": "standard",
         "source": "测试",
         "answer_markdown": "答案",
         "review": "",
@@ -382,9 +382,13 @@ def test_metadata_file_and_cache_are_restored_when_db_commit_fails(
 
     metadata_path = tmp_path / "custom_metadata.json"
     old_metadata = {
-        "question_types": [{"value": "single_choice", "label": "单选题"}],
-        "difficulties": [{"value": "medium", "label": "中等"}],
-        "curriculum": {"必修一": {"1. 集合与常用逻辑用语": ["集合"]}},
+        "domain": "kaoyan_math",
+        "curriculum_version": "K",
+        "profile": "考研数学题库",
+        "question_types": [{"value": "single_choice", "label": "选择题"}],
+        "difficulties": [{"value": "standard", "label": "真题常规"}],
+        "curriculum": {"数学一": {"高等数学": ["函数、极限与连续"]}},
+        "paper_defaults": {"paper_type": "kaoyan", "total_score": 150, "duration_minutes": 180},
     }
     old_text = json.dumps(old_metadata, ensure_ascii=False, indent=2)
     metadata_path.write_text(old_text, encoding="utf-8")
@@ -418,9 +422,13 @@ def test_metadata_save_succeeds_when_post_commit_export_scheduling_fails(
 
     metadata_path = tmp_path / "custom_metadata.json"
     old_metadata = {
-        "question_types": [{"value": "single_choice", "label": "单选题"}],
-        "difficulties": [{"value": "medium", "label": "中等"}],
-        "curriculum": {"必修一": {"第一章": ["集合"]}},
+        "domain": "kaoyan_math",
+        "curriculum_version": "K",
+        "profile": "考研数学题库",
+        "question_types": [{"value": "single_choice", "label": "选择题"}],
+        "difficulties": [{"value": "standard", "label": "真题常规"}],
+        "curriculum": {"数学一": {"高等数学": ["函数、极限与连续"]}},
+        "paper_defaults": {"paper_type": "kaoyan", "total_score": 150, "duration_minutes": 180},
     }
     metadata_path.write_text(
         json.dumps(old_metadata, ensure_ascii=False, indent=2), encoding="utf-8"
