@@ -50,6 +50,11 @@
   - `build`：按（章，难度块，题型，题号）状态机拆题并与解析分册四元组匹配；题号粘连（如「。(4)D.」）按句末标点预切分，行首前向跳跃自愈开新题并打标，编号回退视为子小问保留；选择题转 `choices` 环境、题干尾空括号清洗、`\fillin` 规范化、水印/页眉页脚过滤；产出 `questions.json` 与块级题量对账报告。
   - `import`：默认 dry-run，`--apply` 实际写库；来源按名称幂等创建；按（source_id, source_scope, source_number）幂等去重；逐题一事务写主表 + K 版分类镜像；完成后刷新 JSON 同步导出。
   - `report`：对账报告 + 含插图页面清单（供 PDF 手动截图补图）+ 随机抽查样本。
+- **真题 LaTeX 导入 CLI（`scripts/import_exam_tex.py`）**：`python3 -m scripts.import_exam_tex build|import|papers|match|classify`。
+  - 题源是 `docs/kysx/` 的结构化 LaTeX（`year/<年>/<年>P{1,2,3}.tex`，`problem` 环境天然分题；跨卷 `\useproblem` 复用题只入库一次，来源归属首个定义卷，其余卷的套卷直接引用并在 tags 记录共用卷别；`abcd` 环境转 `choices`，kysx 数学宏按 `MACRO_TABLE` 展开，`\fillin{}`/`\pickout{}` 清洗，插图复制进 `static/uploads/`）。
+  - `papers` 按年按卷创建套卷（`papers` + `paper_questions`，order_index 即卷面顺序、score 取卷面分值），标题如「1987年数学一真题」。
+  - `match` 把 `docs/03.*真题详解` 的 OCR 缓存（`import_paper_book ocr` 生成，key 形如 `jie-s{1,2,3}-{年}`，数二 1989-2004 为合并本）按（年，卷，题号）锚点式单调对齐回填解析；解析分册与题源卷存在版本差异时宁缺毋错。
+  - `classify` 需配置任一文本模型密钥后运行，为真题回填科目/考点与 K 版镜像；未分类真题以「待分类」占位。
 - **插图管理**：提供图片上传与 TikZ 绘图代码输入。图片保存在本地文件系统（`static/uploads/`），数据库存储相对路径。
 - **插图排版位置联动与多图复合渲染**：
   - **多模式与多插图支持**：插图在后端存储 `figure_align` 属性（支持 `right` 题干右侧、`center` 下方居中、`bottom_right` 下方居右）。
