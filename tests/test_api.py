@@ -130,6 +130,23 @@ def test_questions_support_bounded_server_pagination_without_breaking_legacy_arr
     assert len(legacy.json()) == 25
 
 
+def test_questions_can_load_selected_summary_rows_by_id_without_answers(
+    client, db_session
+):
+    first = Question(content="选中摘要题 1", answer_markdown="答案 1")
+    second = Question(content="选中摘要题 2", answer_markdown="答案 2")
+    db_session.add_all([first, second])
+    db_session.commit()
+
+    response = client.get(f"/api/questions?ids={second.id},{first.id},{second.id}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert {item["id"] for item in data} == {first.id, second.id}
+    assert all("answer_markdown" not in item for item in data)
+    assert all(item["has_answer"] is True for item in data)
+
+
 def test_api_categories(client):
     # GET categories should return category options
     response = client.get("/api/categories")

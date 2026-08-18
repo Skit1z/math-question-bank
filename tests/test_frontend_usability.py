@@ -239,6 +239,19 @@ def test_paper_question_answers_are_collapsible_and_loaded_on_demand():
         assert marker in paper_source
 
 
+def test_paper_stream_uses_bounded_pagination_and_one_math_pass_per_page():
+    paper_source = _read(STATIC_JS_DIR / "paper.js")
+
+    assert "const PAPER_PAGE_SIZE = 20" in paper_source
+    assert "params.append('page', String(requestedPage))" in paper_source
+    assert "params.append('page_size', String(PAPER_PAGE_SIZE))" in paper_source
+    assert "window.goToPaperBankPage" in paper_source
+    assert "fetchSelectedCartQuestions" in paper_source
+    assert "ids=${encodeURIComponent(ids)}" in paper_source
+    assert "renderMathInElement(container, {" in paper_source
+    assert "renderMathInElement(el, {" not in paper_source
+
+
 def test_reduced_motion_dark_contrast_and_busy_feedback_are_explicit():
     css_source = _read(CSS_PATH)
     index_source = _read(INDEX_PATH)

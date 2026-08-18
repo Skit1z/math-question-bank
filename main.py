@@ -1941,6 +1941,7 @@ def draw_tikz_from_image_endpoint(
 def list_questions(
     q: str = None,
     search: str = None,
+    ids: str = None,
     exam_track: str = None,
     subject: str = None,
     topic: str = None,
@@ -1958,6 +1959,17 @@ def list_questions(
     type_val = qtype or question_type
 
     query = db.query(Question)
+
+    if ids is not None:
+        requested_ids = []
+        for raw_id in ids.split(","):
+            try:
+                question_id = int(raw_id.strip())
+            except (TypeError, ValueError):
+                continue
+            if question_id > 0 and question_id not in requested_ids:
+                requested_ids.append(question_id)
+        query = query.filter(Question.id.in_(requested_ids)) if requested_ids else query.filter(False)
     
     # Check if searching for a specific display sequence number
     target_id_by_seq = None

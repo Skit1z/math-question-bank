@@ -11,6 +11,7 @@
     const STORAGE_KEY_CART = 'mathbank_paper_cart';
     const STORAGE_KEY_META = 'mathbank_paper_meta';
     const STORAGE_KEY_COLLAPSED = 'mathbank_paper_filter_collapsed';
+    const PAPER_PAGE_SIZE = 20;
 
     // Global Store State
     window.PaperStore = {
@@ -34,6 +35,16 @@
         },
         isFilterCollapsed: false,
         bankQuestions: [], // Loaded questions from DB based on filters
+        bankPagination: {
+            page: 1,
+            pageSize: PAPER_PAGE_SIZE,
+            total: 0,
+            totalPages: 1
+        },
+        bankLoading: false,
+        bankError: '',
+        bankQuestionsLoadController: null,
+        bankQuestionsLoadSequence: 0,
         questionsMap: {}, // qid -> Question Object
         answerCache: Object.create(null), // qid -> full answer_markdown, loaded on demand
         expandedAnswerIds: new Set(),
@@ -337,9 +348,29 @@
         }
     };
 
-    // Fetch Questions from DB for Question Bank Stream
-    async function fetchBankQuestions() {
+    // Fetch only the current question-bank page for the Paper Studio stream.
+    async function fetchBankQuestions(page = null) {
         const f = window.PaperStore.filters;
+        const pagination = window.PaperStore.bankPagination;
+        const requestedPage = Math.max(
+            1,
+            parseInt(page !== null ? page : pagination.page, 10) || 1
+        );
+        const loadSequence = ++window.PaperStore.bankQuestionsLoadSequence;
+
+        if (window.PaperStore.bankQuestionsLoadController) {
+            window.PaperStore.bankQuestionsLoadController.abort();
+        }
+        const requestController = typeof AbortController !== 'undefined'
+            ? new AbortController()
+            : null;
+        window.PaperStore.bankQuestionsLoadController = requestController;
+        window.PaperStore.bankLoading = true;
+        window.PaperStore.bankError = '';
+        pagination.page = requestedPage;
+        pagination.pageSize = PAPER_PAGE_SIZE;
+        renderPart3QuestionStream();
+
         const params = new URLSearchParams();
         if (f.examTrack) {
             params.append('exam_track', f.examTrack);
@@ -361,27 +392,88 @@
             params.append('q', f.keyword);
             params.append('search', f.keyword);
         }
+        params.append('page', String(requestedPage));
+        params.append('page_size', String(PAPER_PAGE_SIZE));
+        params.append('sort', 'desc');
 
         try {
-            const res = await fetch(`/api/questions?${params.toString()}`);
-            const questions = await res.json();
-            if (Array.isArray(questions)) {
-                window.PaperStore.bankQuestions = questions;
-                questions.forEach(q => {
-                    window.PaperStore.questionsMap[q.id] = q;
-                });
-            }
+            const fetchOptions = requestController ? { signal: requestController.signal } : undefined;
+            const res = await fetch(`/api/questions?${params.toString()}`, fetchOptions);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const payload = await res.json();
+            if (loadSequence !== window.PaperStore.bankQuestionsLoadSequence) return loadSequence;
+
+            // Keep a small compatibility fallback for older local servers.
+            const questions = Array.isArray(payload)
+                ? payload.slice((requestedPage - 1) * PAPER_PAGE_SIZE, requestedPage * PAPER_PAGE_SIZE)
+                : (payload && Array.isArray(payload.items) ? payload.items : []);
+            const total = Array.isArray(payload)
+                ? payload.length
+                : Math.max(0, Number(payload && payload.total) || 0);
+            const totalPages = Array.isArray(payload)
+                ? Math.max(1, Math.ceil(total / PAPER_PAGE_SIZE))
+                : Math.max(1, Number(payload && payload.total_pages) || Math.ceil(total / PAPER_PAGE_SIZE));
+
+            pagination.total = total;
+            pagination.totalPages = totalPages;
+            pagination.page = Math.min(
+                Math.max(1, Number(payload && payload.page) || requestedPage),
+                totalPages
+            );
+            window.PaperStore.bankQuestions = questions;
+            questions.forEach(q => {
+                window.PaperStore.questionsMap[q.id] = q;
+            });
         } catch (e) {
-            console.error('Fetch bank questions error:', e);
+            if (e && e.name !== 'AbortError' && loadSequence === window.PaperStore.bankQuestionsLoadSequence) {
+                window.PaperStore.bankError = '题库列表加载失败，请重试。';
+                console.error('Fetch bank questions error:', e);
+            }
+        } finally {
+            if (loadSequence === window.PaperStore.bankQuestionsLoadSequence) {
+                window.PaperStore.bankLoading = false;
+                if (window.PaperStore.bankQuestionsLoadController === requestController) {
+                    window.PaperStore.bankQuestionsLoadController = null;
+                }
+            }
+        }
+        return loadSequence;
+    }
+
+    // Restored carts may contain questions outside the first bank page. Load only
+    // those summaries needed by the canvas/selected tab, without fetching answers.
+    async function fetchSelectedCartQuestions() {
+        const missingIds = [...new Set(window.PaperStore.cart
+            .map(item => parseInt(item.id, 10))
+            .filter(qid => qid && !window.PaperStore.questionsMap[qid]))];
+        if (missingIds.length === 0) return;
+
+        try {
+            const ids = missingIds.join(',');
+            const res = await fetch(`/api/questions?ids=${encodeURIComponent(ids)}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const payload = await res.json();
+            const questions = Array.isArray(payload) ? payload : [];
+            questions.forEach(q => {
+                window.PaperStore.questionsMap[q.id] = q;
+            });
+        } catch (e) {
+            console.warn('Fetch selected paper questions error:', e);
         }
     }
 
     // Render Full Paper Workspace (Part 2, Part 3, Part 4)
     window.renderPaperWorkspace = async function () {
-        await fetchBankQuestions();
         renderPart2FilterSection();
+        window.PaperStore.bankLoading = true;
         renderPart3QuestionStream();
         window.renderPaperCanvas();
+        const loadSequence = await fetchBankQuestions(window.PaperStore.bankPagination.page);
+        await fetchSelectedCartQuestions();
+        if (loadSequence === window.PaperStore.bankQuestionsLoadSequence) {
+            renderPart3QuestionStream();
+            window.renderPaperCanvas();
+        }
     };
 
     // Render Part 2: Config & 3-Level Cascade Filter Section
@@ -544,8 +636,19 @@
     }
 
     let filterDebounceTimer = null;
+    function refreshPaperBankQuestions() {
+        window.PaperStore.bankPagination.page = 1;
+        const request = fetchBankQuestions(1);
+        request.then(loadSequence => {
+            if (loadSequence === window.PaperStore.bankQuestionsLoadSequence) {
+                renderPart3QuestionStream();
+            }
+        });
+    }
+
     window.onPaperFilterChange = function (key, value) {
         window.PaperStore.filters[key] = value;
+        window.PaperStore.bankPagination.page = 1;
         
         // Handle cascade resets
         if (key === 'examTrack') {
@@ -559,14 +662,9 @@
 
         if (key === 'keyword') {
             clearTimeout(filterDebounceTimer);
-            filterDebounceTimer = setTimeout(async () => {
-                await fetchBankQuestions();
-                renderPart3QuestionStream();
-            }, 300);
+            filterDebounceTimer = setTimeout(refreshPaperBankQuestions, 300);
         } else {
-            fetchBankQuestions().then(() => {
-                renderPart3QuestionStream();
-            });
+            refreshPaperBankQuestions();
         }
     };
 
@@ -707,6 +805,52 @@
         renderPart3QuestionStream();
     };
 
+    window.goToPaperBankPage = async function (page) {
+        if (window.PaperStore.filters.tab !== 'all') return;
+        const pagination = window.PaperStore.bankPagination;
+        const nextPage = Math.min(
+            Math.max(1, parseInt(page, 10) || 1),
+            Math.max(1, pagination.totalPages)
+        );
+        if (nextPage === pagination.page && !window.PaperStore.bankLoading && !window.PaperStore.bankError) return;
+
+        const loadSequence = await fetchBankQuestions(nextPage);
+        if (loadSequence === window.PaperStore.bankQuestionsLoadSequence) {
+            renderPart3QuestionStream();
+        }
+    };
+
+    window.jumpToPaperBankPage = function (value) {
+        window.goToPaperBankPage(value);
+    };
+
+    function renderPaperBankPagination() {
+        const pagination = window.PaperStore.bankPagination;
+        const totalPages = Math.max(1, pagination.totalPages || 1);
+        const currentPage = Math.min(Math.max(1, pagination.page || 1), totalPages);
+        if (pagination.total <= 0 || totalPages <= 1) return '';
+
+        return `
+            <nav class="flex flex-wrap items-center justify-between gap-2 mt-5 pt-3 border-t border-slate-200/70 dark:border-slate-700/70 text-[11px] text-slate-500" aria-label="组卷题库分页">
+                <span>共 ${pagination.total} 题，第 ${currentPage} / ${totalPages} 页</span>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="window.goToPaperBankPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}
+                        class="min-h-[32px] px-2.5 rounded-lg border border-slate-200 bg-white/80 font-semibold hover:border-brand-200 hover:text-brand-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800">
+                        <i class="fa-solid fa-chevron-left text-[9px] mr-1"></i>上一页
+                    </button>
+                    <input type="number" min="1" max="${totalPages}" value="${currentPage}"
+                        onkeydown="if(event.key === 'Enter') window.jumpToPaperBankPage(this.value)"
+                        aria-label="跳转组卷题库页码"
+                        class="w-14 min-h-[32px] rounded-lg border border-slate-200 bg-white/80 text-center text-[11px] font-semibold dark:border-slate-700 dark:bg-slate-800">
+                    <button type="button" onclick="window.goToPaperBankPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}
+                        class="min-h-[32px] px-2.5 rounded-lg border border-slate-200 bg-white/80 font-semibold hover:border-brand-200 hover:text-brand-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800">
+                        下一页<i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </nav>
+        `;
+    }
+
     // Render Part 3: Full-Width Question Stream
     function renderPart3QuestionStream() {
         const container = document.getElementById('paperQuestionStream');
@@ -714,7 +858,9 @@
 
         const cart = window.PaperStore.cart;
         const bankQuestions = window.PaperStore.bankQuestions;
+        const bankTotal = window.PaperStore.bankPagination.total || bankQuestions.length;
         const currentTab = window.PaperStore.filters.tab || 'all';
+        const cartById = new Map(cart.map(item => [item.id, item]));
 
         // Prepare list based on tab
         let displayList = [];
@@ -733,7 +879,7 @@
                 <div class="flex items-center space-x-1.5 bg-slate-200/60 p-1 rounded-xl dark:bg-slate-800">
                     <button onclick="switchPaperStreamTab('all')" 
                         class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${currentTab === 'all' ? 'bg-white text-brand-600 shadow-sm dark:bg-slate-700 dark:text-brand-200' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}">
-                        全库试题 (${bankQuestions.length})
+                        全库试题 (${bankTotal})
                     </button>
                     <button onclick="switchPaperStreamTab('selected')" 
                         class="px-3 py-1 rounded-lg text-xs font-bold transition-all ${currentTab === 'selected' ? 'bg-white text-brand-600 shadow-sm dark:bg-slate-700 dark:text-brand-200' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}">
@@ -759,6 +905,32 @@
             </div>
         `;
 
+        if (currentTab === 'all' && window.PaperStore.bankLoading) {
+            html += `
+                <div class="flex flex-col items-center justify-center py-20 bg-white/60 backdrop-blur-md rounded-2xl border border-slate-200/80 dark:bg-slate-800/40 dark:border-slate-700" role="status" aria-live="polite">
+                    <i class="fa-solid fa-spinner fa-spin text-brand-500 text-2xl mb-3"></i>
+                    <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">正在加载当前页题目...</p>
+                </div>
+            `;
+            container.innerHTML = html;
+            return;
+        }
+
+        if (currentTab === 'all' && window.PaperStore.bankError) {
+            html += `
+                <div class="flex flex-col items-center justify-center py-20 bg-white/60 backdrop-blur-md rounded-2xl border border-rose-200/80 dark:bg-slate-800/40 dark:border-rose-900/70" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500 text-2xl mb-3"></i>
+                    <p class="text-xs font-semibold text-rose-600 dark:text-rose-300">${escapeHtml(window.PaperStore.bankError)}</p>
+                    <button type="button" onclick="window.goToPaperBankPage(window.PaperStore.bankPagination.page)"
+                        class="mt-3 px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/70 dark:bg-slate-800">
+                        重新加载
+                    </button>
+                </div>
+            `;
+            container.innerHTML = html;
+            return;
+        }
+
         if (displayList.length === 0) {
             html += `
                 <div class="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur-md rounded-2xl border border-dashed border-slate-300 dark:bg-slate-800/40 dark:border-slate-700">
@@ -777,7 +949,7 @@
 
         displayList.forEach((q, index) => {
             const inCart = window.isInCart(q.id);
-            const cartItem = cart.find(it => it.id === q.id);
+            const cartItem = cartById.get(q.id);
             const currentScore = cartItem ? cartItem.score : (q.question_type === 'detailed_answer' ? 12 : 5);
             const qTypeLabel = getQuestionTypeCn(q.question_type);
             const diffTag = getDifficultyBadge(q.difficulty);
@@ -916,43 +1088,28 @@
         });
 
         html += `</div>`;
+        if (currentTab === 'all') {
+            html += renderPaperBankPagination();
+        }
         container.innerHTML = html;
 
-        // Render math formulas for Part 3 question cards
-        displayList.forEach(q => {
-            const el = document.getElementById(`paper-q-render-${q.id}`);
-            if (el && typeof renderMathInElement === 'function') {
-                try {
-                    renderMathInElement(el, {
-                        delimiters: [
-                            { left: '$$', right: '$$', display: true },
-                            { left: '$', right: '$', display: false },
-                            { left: '\\(', right: '\\)', display: false },
-                            { left: '\\[', right: '\\]', display: true }
-                        ],
-                        throwOnError: false
-                    });
-                    if (typeof window.adaptChoicesGridLayout === 'function') {
-                        window.adaptChoicesGridLayout(el);
-                    }
-                } catch (e) { }
-            }
-
-            const answerEl = document.getElementById(`paper-q-answer-content-${q.id}`);
-            if (answerEl && !window.PaperStore.answerLoadingIds.has(q.id) && !window.PaperStore.answerErrors[q.id] && typeof renderMathInElement === 'function') {
-                try {
-                    renderMathInElement(answerEl, {
-                        delimiters: [
-                            { left: '$$', right: '$$', display: true },
-                            { left: '$', right: '$', display: false },
-                            { left: '\\(', right: '\\)', display: false },
-                            { left: '\\[', right: '\\]', display: true }
-                        ],
-                        throwOnError: false
-                    });
-                } catch (e) { }
-            }
-        });
+        // Render the current page in one KaTeX traversal instead of once per card.
+        if (typeof renderMathInElement === 'function') {
+            try {
+                renderMathInElement(container, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false },
+                        { left: '\\[', right: '\\]', display: true }
+                    ],
+                    throwOnError: false
+                });
+                if (typeof window.adaptChoicesGridLayout === 'function') {
+                    window.adaptChoicesGridLayout(container);
+                }
+            } catch (e) { }
+        }
     }
 
     // Render Part 4: Right A4 Canvas & Action Bar
